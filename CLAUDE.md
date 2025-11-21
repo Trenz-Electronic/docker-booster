@@ -29,6 +29,8 @@ The script operates in two modes based on `$0`:
 
 User/group mapping preserves host username, UID, GID, and group name. If the group name already exists in the container with a different GID, it's renamed to `${groupname}_${gid}`.
 
+The script automatically enables Docker BuildKit when Dockerfiles use `RUN --mount` syntax.
+
 ## Testing
 
 Run tests:
@@ -43,7 +45,7 @@ tests/run --cleanup                # Only cleanup, no tests
 ### Test Structure
 
 Tests live in `tests/NNNN_name/` directories (numbered for ordering):
-- `Dockerfile` - Test container definition
+- `Dockerfile` - Test container definition (may be generated dynamically by test.sh)
 - `run` - Symlink to `../../build-and-run`
 - `test.sh` - Test script (exit 0 = pass, non-zero = fail)
 
