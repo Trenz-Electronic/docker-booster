@@ -45,3 +45,4 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 ### Test Cases
 
 - `0001_preserve_env` - Tests ENV vars from Dockerfile are preserved across sudo
+- `0002_pragma_platform_aarch64` - Tests `# platform: arm64` runs container on aarch64
