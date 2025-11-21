@@ -25,7 +25,9 @@ Note: `ENV` vars defined in the Dockerfile (after the last `FROM`) are automatic
 
 The script operates in two modes based on `$0`:
 1. **Normal mode** - Parses Dockerfile, builds image if needed, runs container
-2. **user-command mode** - Runs inside container, creates user matching host UID/GID, executes command
+2. **user-command mode** - Runs inside container, creates user matching host UID/GID/group, executes command
+
+User/group mapping preserves host username, UID, GID, and group name. If the group name already exists in the container with a different GID, it's renamed to `${groupname}_${gid}`.
 
 ## Testing
 
@@ -61,3 +63,4 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0012_cmdline_env` - Tests `-e` command-line option passes env vars
 - `0013_pragma_option_env` - Tests `#option: -e` passes env vars
 - `0014_cmdline_options` - Tests common docker options (-v, --network, --cpus)
+- `0015_user_mapping_conflict` - Tests group name conflict handling (rename with GID suffix)

@@ -67,9 +67,9 @@ if [ x"${myname}" = x"user-command" ]; then
   # Run the given command in the container.
 
   # Argument checks.
-  if [ $# -lt 5 ]; then
+  if [ $# -lt 6 ]; then
     >&2 echo "Missing command-line parameters."
-    >&2 echo "Usage:  container USER USERID GROUPID HOME COMMAND [PARAMETERS]"
+    >&2 echo "Usage:  container USER USERID GROUPID GROUPNAME HOME COMMAND [PARAMETERS]"
     exit 2
   fi
   USER=$1
@@ -77,6 +77,8 @@ if [ x"${myname}" = x"user-command" ]; then
   USERID=$1
   shift || exit $?
   GROUPID=$1
+  shift || exit $?
+  GROUPNAME=$1
   shift || exit $?
   HOME=$1
   shift || exit $?
@@ -86,8 +88,22 @@ if [ x"${myname}" = x"user-command" ]; then
     echo "$USER:*:$USERID:$GROUPID:Docker runner:$HOME:/bin/bash" >> /etc/passwd
     echo "$USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/10-docker-users
   fi
-  if ! grep -q ^mygroup: /etc/group; then
-    echo "mygroup::$GROUPID::" >> /etc/group
+
+  # Create group with host group name, handling conflicts
+  if grep -q "^$GROUPNAME:" /etc/group; then
+    # Group name exists, check if GID matches
+    EXISTING_GID=$(grep "^$GROUPNAME:" /etc/group | cut -d: -f3)
+    if [ "$EXISTING_GID" != "$GROUPID" ]; then
+      # GID conflict, use alternate name
+      GROUPNAME="${GROUPNAME}_$GROUPID"
+      if ! grep -q "^$GROUPNAME:" /etc/group; then
+        echo "$GROUPNAME::$GROUPID::" >> /etc/group
+      fi
+    fi
+    # Else: group exists with same GID, use it as-is
+  else
+    # Group doesn't exist, create it
+    echo "$GROUPNAME::$GROUPID::" >> /etc/group
   fi
 
   # Execute the command as the requested user
@@ -480,5 +496,5 @@ exec docker run --rm -i $TFLAG \
   $CMDLINE_DOCKER_ARGS \
   $DOCKER_OPTIONS \
   $tag \
-  /bin/user-command $USER "$(id -u)" "$(id -g)" $HOME "$@"
+  /bin/user-command $USER "$(id -u)" "$(id -g)" "$(id -gn)" $HOME "$@"
 
