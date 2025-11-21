@@ -54,3 +54,5 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0006_volume_mount_home` - Tests `$HOME` is accessible inside container
 - `0007_volume_mount_pwd` - Tests `$PWD` is accessible inside container
 - `0008_pragma_http_static` - Tests `#http.static:` serves files during build
+- `0009_tty_absent` - Tests no TTY when run without interactive terminal
+- `0010_tty_present` - Tests TTY detected when run with pseudo-terminal
