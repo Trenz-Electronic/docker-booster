@@ -23,13 +23,13 @@ Your Dockerfiles gain new powers via simple comment pragmas:
 Add docker-booster as a submodule to your project:
 
 ```bash
-git submodule add https://github.com/YOUR_ORG/docker-booster.git docker
+git submodule add https://github.com/Trenz-Electronic/docker-booster.git docker
 ```
 
 Or clone it directly:
 
 ```bash
-git clone https://github.com/YOUR_ORG/docker-booster.git
+git clone https://github.com/Trenz-Electronic/docker-booster.git
 ```
 
 ## Quick Start
@@ -96,32 +96,23 @@ Specify target platform in the first 10 lines:
 FROM ubuntu:22.04
 ```
 
-Supported values: `arm64`, `amd64`
+Supported values: Any Docker platform string (e.g., `arm64`, `amd64`, `linux/arm/v7`, `linux/arm64`)
 
-### Environment Variable Preservation
-
-Preserve environment variables when switching to the mapped user:
-
-```dockerfile
-#env: PATH,MY_SDK_ROOT,MY_SDK_VERSION
-FROM ubuntu:22.04
-
-ENV MY_SDK_ROOT=/opt/sdk
-ENV MY_SDK_VERSION=1.0
-ENV PATH="${MY_SDK_ROOT}/bin:${PATH}"
-```
+**Technical note:** Environment variables defined via `ENV` in your Dockerfile are automatically preserved across sudo inside the container - no pragma needed.
 
 ### HTTP Static File Serving
 
 Serve local directories via HTTP during image builds (useful for large installers):
 
 ```dockerfile
-#http.static: INSTALLER=/path/to/local/installers
+#http.static: INSTALLER=/absolute/path/to/installers
 FROM ubuntu:22.04
 
 ARG HTTP_INSTALLER
 RUN wget ${HTTP_INSTALLER}/large-sdk-installer.run && ./large-sdk-installer.run
 ```
+
+**Note:** Path must be absolute and the directory must exist before build.
 
 The script automatically:
 - Starts a temporary HTTP server on a random port
@@ -173,11 +164,11 @@ Volumes are automatically mounted based on your working directory:
 
 ## Technical Details
 
-- Creates a temporary user inside the container matching your host UID/GID
+- Creates a temporary user inside the container matching your host UID/GID/group
 - Grants sudo access to the created user
 - Preserves your working directory inside the container
 - Auto-detects TTY for interactive sessions
-- Enables BuildKit automatically when Dockerfiles use `RUN --mount` syntax
+- Automatically enables Docker BuildKit when Dockerfiles use `RUN --mount` syntax
 
 ## Troubleshooting
 

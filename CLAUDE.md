@@ -64,3 +64,4 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0013_pragma_option_env` - Tests `#option: -e` passes env vars
 - `0014_cmdline_options` - Tests common docker options (-v, --network, --cpus)
 - `0015_user_mapping_conflict` - Tests group name conflict handling (rename with GID suffix)
+- `0016_buildkit_auto` - Tests automatic BuildKit enablement for `RUN --mount` syntax
