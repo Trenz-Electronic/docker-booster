@@ -50,3 +50,7 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0002_pragma_platform_aarch64` - Tests `# platform: arm64` runs container on aarch64
 - `0003_pragma_platform_amd64` - Tests `# platform: amd64` runs container on x86_64
 - `0004_pragma_platform_armv7` - Tests `# platform: arm/v7` runs container on armv7l (Zynq, RPi)
+- `0005_user_mapping` - Tests container user matches host UID/GID
+- `0006_volume_mount_home` - Tests `$HOME` is accessible inside container
+- `0007_volume_mount_pwd` - Tests `$PWD` is accessible inside container
+- `0008_pragma_http_static` - Tests `#http.static:` serves files during build
