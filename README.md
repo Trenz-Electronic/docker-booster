@@ -66,6 +66,18 @@ The image will be built automatically on first run.
 # Run make inside the container
 ./docker/build-env/run make -j$(nproc)
 
+# Pass environment variables
+./docker/build-env/run -e CC=clang -e CFLAGS="-O2" make
+
+# Use host networking
+./docker/web-server/run --network host nginx
+
+# Mount additional volumes
+./docker/build-env/run -v /data:/data make
+
+# Limit resources
+./docker/build-env/run --cpus 4 --memory 8g make -j4
+
 # Run a specific command
 ./docker/build-env/run python3 setup.py install
 ```

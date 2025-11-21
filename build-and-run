@@ -113,6 +113,160 @@ real_self=$(realpath --no-symlinks $0)
 dir=$(dirname ${real_self})
 tag=$(basename $dir)
 
+# Parse command-line options meant for docker
+CMDLINE_ENV_ARGS=""
+CMDLINE_ENV_VARS=""
+CMDLINE_DOCKER_ARGS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -e)
+      # -e VAR=val
+      shift
+      CMDLINE_ENV_ARGS="$CMDLINE_ENV_ARGS -e $1"
+      CMDLINE_ENV_VARS="$CMDLINE_ENV_VARS,$(echo "$1" | cut -d= -f1)"
+      shift
+      ;;
+    --env=*)
+      # --env=VAR=val
+      val="${1#--env=}"
+      CMDLINE_ENV_ARGS="$CMDLINE_ENV_ARGS -e $val"
+      CMDLINE_ENV_VARS="$CMDLINE_ENV_VARS,$(echo "$val" | cut -d= -f1)"
+      shift
+      ;;
+    --env)
+      # --env VAR=val
+      shift
+      CMDLINE_ENV_ARGS="$CMDLINE_ENV_ARGS -e $1"
+      CMDLINE_ENV_VARS="$CMDLINE_ENV_VARS,$(echo "$1" | cut -d= -f1)"
+      shift
+      ;;
+    -v|--volume)
+      # -v /host:/container or --volume /host:/container
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS -v $1"
+      shift
+      ;;
+    --volume=*)
+      # --volume=/host:/container
+      val="${1#--volume=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS -v $val"
+      shift
+      ;;
+    -p|--publish)
+      # -p 8080:80 or --publish 8080:80
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS -p $1"
+      shift
+      ;;
+    --publish=*)
+      # --publish=8080:80
+      val="${1#--publish=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS -p $val"
+      shift
+      ;;
+    -w|--workdir)
+      # -w /path or --workdir /path
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS -w $1"
+      shift
+      ;;
+    --workdir=*)
+      # --workdir=/path
+      val="${1#--workdir=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS -w $val"
+      shift
+      ;;
+    --network|--net)
+      # --network host or --net host
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --network $1"
+      shift
+      ;;
+    --network=*|--net=*)
+      # --network=host
+      val="${1#--network=}"
+      val="${val#--net=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --network $val"
+      shift
+      ;;
+    --device)
+      # --device /dev/ttyUSB0
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --device $1"
+      shift
+      ;;
+    --device=*)
+      # --device=/dev/ttyUSB0
+      val="${1#--device=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --device $val"
+      shift
+      ;;
+    --cpus)
+      # --cpus 2
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --cpus $1"
+      shift
+      ;;
+    --cpus=*)
+      # --cpus=2
+      val="${1#--cpus=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --cpus $val"
+      shift
+      ;;
+    -m|--memory)
+      # -m 1g or --memory 1g
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --memory $1"
+      shift
+      ;;
+    --memory=*)
+      # --memory=1g
+      val="${1#--memory=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --memory $val"
+      shift
+      ;;
+    --gpus)
+      # --gpus all
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --gpus $1"
+      shift
+      ;;
+    --gpus=*)
+      # --gpus=all
+      val="${1#--gpus=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --gpus $val"
+      shift
+      ;;
+    --name)
+      # --name mycontainer
+      shift
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --name $1"
+      shift
+      ;;
+    --name=*)
+      # --name=mycontainer
+      val="${1#--name=}"
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS --name $val"
+      shift
+      ;;
+    --privileged|--read-only)
+      # Boolean flags
+      CMDLINE_DOCKER_ARGS="$CMDLINE_DOCKER_ARGS $1"
+      shift
+      ;;
+    -*)
+      # Unknown option - stop parsing, assume it's part of the command
+      break
+      ;;
+    *)
+      # Not an option - this is the command
+      break
+      ;;
+  esac
+done
+# Remove leading comma from CMDLINE_ENV_VARS
+CMDLINE_ENV_VARS=$(echo "$CMDLINE_ENV_VARS" | sed 's/^,//')
+
 case $PWD in
   $HOME*) MDIR=$HOME
      VARG=;;
@@ -273,16 +427,20 @@ fi
 
 # Parse #option: directives for additional docker run options
 DOCKER_OPTIONS=""
+OPTION_ENV_VARS=""
 if [ -f "$dir/Dockerfile" ]; then
   OPTION_LINES=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*option:\s*' || true)
   if [ -n "$OPTION_LINES" ]; then
     DOCKER_OPTIONS=$(echo "$OPTION_LINES" | sed -E 's/^#\s*option:\s*//' | tr '\n' ' ')
+    # Extract env var names from -e options in DOCKER_OPTIONS
+    OPTION_ENV_VARS=$(echo "$DOCKER_OPTIONS" | grep -oE '(-e|--env=?)[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=' | sed -E 's/(-e|--env=?)[[:space:]]*//' | sed 's/=$//' | tr '\n' ',' | sed 's/,$//')
   fi
 fi
 
 # Auto-preserve ENV vars from Dockerfile across sudo
 # Extract ENV var names after the last FROM line
 PRESERVE_ENV_ARG=""
+ENV_VARS=""
 if [ -f "$dir/Dockerfile" ]; then
   # Get line number of last FROM, then extract ENV lines after it
   LAST_FROM=$(grep -n '^FROM' "$dir/Dockerfile" | tail -1 | cut -d: -f1)
@@ -293,10 +451,20 @@ if [ -f "$dir/Dockerfile" ]; then
       sed -E 's/^\s*ENV\s+//' | \
       sed -E 's/^([A-Za-z_][A-Za-z0-9_]*)[= ].*/\1/' | \
       tr '\n' ',' | sed 's/,$//')
+  fi
+fi
+# Combine Dockerfile ENV vars with command-line and #option: env vars
+for extra_vars in "$CMDLINE_ENV_VARS" "$OPTION_ENV_VARS"; do
+  if [ -n "$extra_vars" ]; then
     if [ -n "$ENV_VARS" ]; then
-      PRESERVE_ENV_ARG="-e DOCKER_PRESERVE_ENV=$ENV_VARS"
+      ENV_VARS="$ENV_VARS,$extra_vars"
+    else
+      ENV_VARS="$extra_vars"
     fi
   fi
+done
+if [ -n "$ENV_VARS" ]; then
+  PRESERVE_ENV_ARG="-e DOCKER_PRESERVE_ENV=$ENV_VARS"
 fi
 
 # Use "$@" instead of $* to preserve argument boundaries
@@ -308,6 +476,8 @@ exec docker run --rm -i $TFLAG \
   --entrypoint /bin/sh \
   $PLATFORM_ARG \
   $PRESERVE_ENV_ARG \
+  $CMDLINE_ENV_ARGS \
+  $CMDLINE_DOCKER_ARGS \
   $DOCKER_OPTIONS \
   $tag \
   /bin/user-command $USER "$(id -u)" "$(id -g)" $HOME "$@"

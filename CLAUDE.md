@@ -58,3 +58,6 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0009_tty_absent` - Tests no TTY when run without interactive terminal
 - `0010_tty_present` - Tests TTY detected when run with pseudo-terminal
 - `0011_pragma_option` - Tests `#option:` passes args to docker run
+- `0012_cmdline_env` - Tests `-e` command-line option passes env vars
+- `0013_pragma_option_env` - Tests `#option: -e` passes env vars
+- `0014_cmdline_options` - Tests common docker options (-v, --network, --cpus)
