@@ -28,11 +28,13 @@ The script operates in two modes based on `$0`:
 
 ## Testing
 
-Run all tests:
+Run tests:
 ```sh
-tests/run-all              # Run tests, cleanup after
-tests/run-all --no-cleanup # Run tests, keep containers for debugging
-tests/run-all --cleanup    # Only cleanup, no tests
+tests/run --all                    # Run all tests
+tests/run 0001                     # Run single test by prefix
+tests/run 0001 0003                # Run multiple tests
+tests/run --no-cleanup --all       # Run all, keep containers for debugging
+tests/run --cleanup                # Only cleanup, no tests
 ```
 
 ### Test Structure
