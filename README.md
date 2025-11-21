@@ -51,39 +51,18 @@ git clone https://github.com/Trenz-Electronic/docker-booster.git
 
 4. **Run commands** inside the container:
    ```bash
-   ./containers/my-container/run bash
-   ./containers/my-container/run make
-   ./containers/my-container/run python3 script.py
+   # verify that the local directory is mapped by listing the files
+   ./containers/my-container/run ls -l .
+   # verify my user inside the container
+   ./containers/my-container/run whoami
+   # only now start the build, which might invoke foreign CPU architecture compilers with QEMU fully automatically.
+   ./containers/my-container/run make -j$(nproc)
    ```
 
-The image will be built automatically on first run.
+The image will be built automatically on first run, get accustomed to it.
 
 **Important:** Create your container directories in your project (not inside the `docker-booster/` submodule) so they can be version-controlled with your code.
 
-## Usage Examples
-
-```bash
-# Start interactive bash session
-./containers/build-env/run bash
-
-# Run make inside the container
-./containers/build-env/run make -j$(nproc)
-
-# Pass environment variables
-./containers/build-env/run -e CC=clang -e CFLAGS="-O2" make
-
-# Use host networking
-./containers/web-server/run --network host nginx
-
-# Mount additional volumes
-./containers/build-env/run -v /data:/data make
-
-# Limit resources
-./containers/build-env/run --cpus 4 --memory 8g make -j4
-
-# Run a specific command
-./containers/build-env/run python3 setup.py install
-```
 
 ## Dockerfile Directives
 
@@ -91,7 +70,7 @@ docker-booster extends Dockerfiles with special comment directives.
 
 ### Platform Selection
 
-Specify target platform in the first 10 lines:
+Specify the target platform in the first 10 lines:
 
 ```dockerfile
 # platform: arm64
@@ -102,6 +81,8 @@ Supported values: Any Docker platform string (e.g., `arm64`, `amd64`, `linux/arm
 
 **Technical note:** Environment variables defined via `ENV` in your Dockerfile are automatically preserved across sudo inside the container - no pragma needed.
 
+This feature can be handy when you want to avoid the hassle of cross-compiling and use native compiling on some foreign CPU architecture. It is very easy to use, but obviously compilation speed suffers significantly.
+
 ### HTTP Static File Serving
 
 Serve local directories via HTTP during image builds (useful for large installers):
@@ -111,7 +92,8 @@ Serve local directories via HTTP during image builds (useful for large installer
 FROM ubuntu:22.04
 
 ARG HTTP_INSTALLER
-RUN wget ${HTTP_INSTALLER}/large-sdk-installer.run && ./large-sdk-installer.run
+# not the cleanup step - the purpose of this is to keep the docker layers small.
+RUN wget ${HTTP_INSTALLER}/large-sdk-installer.run && sh ./large-sdk-installer.run && rm ./large-sdk-installer.run
 ```
 
 **Note:** Path must be absolute and the directory must exist before build.
@@ -121,7 +103,18 @@ The script automatically:
 - Passes the URL as `HTTP_<KEY>` build argument
 - Cleans up the server after build completes
 
-### Additional Docker Options
+### Docker options in the Dockerfile
+
+For any options you want to always be present on the command line, use the `#option:` pragma in your Dockerfile:
+
+```dockerfile
+#option: --security-opt seccomp=unconfined
+#option: --cap-add SYS_PTRACE
+#option: --network host
+FROM ubuntu:22.04
+```
+
+### Docker options on the command line
 
 Pass docker run options directly on the command line:
 
@@ -146,13 +139,7 @@ Pass docker run options directly on the command line:
 - `--name` - Container name
 - `--privileged`, `--read-only` - Boolean flags
 
-For options not listed above, use the `#option:` pragma in your Dockerfile:
-
-```dockerfile
-#option: --security-opt seccomp=unconfined
-#option: --cap-add SYS_PTRACE
-FROM ubuntu:22.04
-```
+Important: only the above listed options are supported on the command line.
 
 ## Project Structure
 
