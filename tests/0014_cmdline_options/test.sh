@@ -39,4 +39,13 @@ case "$output" in
         ;;
 esac
 
+# Test -w/--workdir (verify working directory changed)
+output=$(./run -w /tmp pwd)
+if [ "$output" = "/tmp" ]; then
+    echo "PASS: -w /tmp"
+else
+    echo "FAIL: -w /tmp - expected /tmp, got: $output"
+    fail=1
+fi
+
 exit $fail
