@@ -49,6 +49,8 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `run` - Symlink to `../../build-and-run`
 - `test.sh` - Test script (exit 0 = pass, non-zero = fail)
 
+**Note:** Tests use a special structure (inside `tests/` directory) for testing purposes. The recommended user pattern is to place containers in a `containers/` directory at the project root, not inside the `docker-booster/` submodule. See README.md "Project Structure" section for details.
+
 ### Test Cases
 
 - `0001_preserve_env` - Tests ENV vars from Dockerfile are preserved across sudo

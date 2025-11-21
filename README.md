@@ -23,7 +23,7 @@ Your Dockerfiles gain new powers via simple comment pragmas:
 Add docker-booster as a submodule to your project:
 
 ```bash
-git submodule add https://github.com/Trenz-Electronic/docker-booster.git docker
+git submodule add https://github.com/Trenz-Electronic/docker-booster.git docker-booster
 ```
 
 Or clone it directly:
@@ -36,51 +36,53 @@ git clone https://github.com/Trenz-Electronic/docker-booster.git
 
 1. **Create a container directory** with your desired name:
    ```bash
-   mkdir docker/my-container
+   mkdir -p containers/my-container
    ```
 
 2. **Add a Dockerfile**:
    ```bash
-   echo 'FROM ubuntu:22.04' > docker/my-container/Dockerfile
+   echo 'FROM ubuntu:22.04' > containers/my-container/Dockerfile
    ```
 
 3. **Create a symlink** to the build-and-run script:
    ```bash
-   cd docker/my-container && ln -s ../build-and-run run
+   cd containers/my-container && ln -s ../../docker-booster/build-and-run run
    ```
 
 4. **Run commands** inside the container:
    ```bash
-   ./docker/my-container/run bash
-   ./docker/my-container/run make
-   ./docker/my-container/run python3 script.py
+   ./containers/my-container/run bash
+   ./containers/my-container/run make
+   ./containers/my-container/run python3 script.py
    ```
 
 The image will be built automatically on first run.
+
+**Important:** Create your container directories in your project (not inside the `docker-booster/` submodule) so they can be version-controlled with your code.
 
 ## Usage Examples
 
 ```bash
 # Start interactive bash session
-./docker/build-env/run bash
+./containers/build-env/run bash
 
 # Run make inside the container
-./docker/build-env/run make -j$(nproc)
+./containers/build-env/run make -j$(nproc)
 
 # Pass environment variables
-./docker/build-env/run -e CC=clang -e CFLAGS="-O2" make
+./containers/build-env/run -e CC=clang -e CFLAGS="-O2" make
 
 # Use host networking
-./docker/web-server/run --network host nginx
+./containers/web-server/run --network host nginx
 
 # Mount additional volumes
-./docker/build-env/run -v /data:/data make
+./containers/build-env/run -v /data:/data make
 
 # Limit resources
-./docker/build-env/run --cpus 4 --memory 8g make -j4
+./containers/build-env/run --cpus 4 --memory 8g make -j4
 
 # Run a specific command
-./docker/build-env/run python3 setup.py install
+./containers/build-env/run python3 setup.py install
 ```
 
 ## Dockerfile Directives
@@ -124,11 +126,11 @@ The script automatically:
 Pass docker run options directly on the command line:
 
 ```bash
-./docker/build-env/run -e CC=clang make          # Environment variables
-./docker/build-env/run -v /data:/data make       # Volume mounts
-./docker/build-env/run -p 8080:80 nginx          # Port mapping
-./docker/build-env/run --network host curl ...   # Network mode
-./docker/build-env/run --cpus 4 --memory 8g ...  # Resource limits
+./containers/build-env/run -e CC=clang make          # Environment variables
+./containers/build-env/run -v /data:/data make       # Volume mounts
+./containers/build-env/run -p 8080:80 nginx          # Port mapping
+./containers/build-env/run --network host curl ...   # Network mode
+./containers/build-env/run --cpus 4 --memory 8g ...  # Resource limits
 ```
 
 **Supported command-line options:**
@@ -151,6 +153,34 @@ For options not listed above, use the `#option:` pragma in your Dockerfile:
 #option: --cap-add SYS_PTRACE
 FROM ubuntu:22.04
 ```
+
+## Project Structure
+
+docker-booster is flexible about where you place your container directories. The recommended structure is:
+
+```
+my-project/
+├── docker-booster/          # git submodule
+│   ├── build-and-run
+│   └── ...
+├── containers/              # your container definitions
+│   ├── build-env/
+│   │   ├── Dockerfile
+│   │   └── run -> ../../docker-booster/build-and-run
+│   └── test-env/
+│       ├── Dockerfile
+│       └── run -> ../../docker-booster/build-and-run
+└── src/
+    └── ...
+```
+
+**Key points:**
+- Place containers in your project, **not** inside the `docker-booster/` submodule
+- Use symlinks to point to `build-and-run` from each container directory
+- The container name is determined by the directory name
+- All containers can share the same `build-and-run` script via symlinks
+
+You can also place containers directly in your project root or use any other directory structure - just adjust the symlink paths accordingly.
 
 ## Volume Mounting
 
