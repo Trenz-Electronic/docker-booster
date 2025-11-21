@@ -271,13 +271,22 @@ if [ -n "$IMGARCH" ]; then
   PLATFORM_ARG="--platform ${IMGARCH}"
 fi
 
-# Parse #env: directive for environment variable preservation
+# Auto-preserve ENV vars from Dockerfile across sudo
+# Extract ENV var names after the last FROM line
 PRESERVE_ENV_ARG=""
 if [ -f "$dir/Dockerfile" ]; then
-  ENV_LINE=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*env:\s*' | head -n 1)
-  if [ -n "$ENV_LINE" ]; then
-    PRESERVE_ENV=$(echo "$ENV_LINE" | sed -E 's/^#\s*env:\s*//' | tr -d ' ')
-    PRESERVE_ENV_ARG="-e DOCKER_PRESERVE_ENV=$PRESERVE_ENV"
+  # Get line number of last FROM, then extract ENV lines after it
+  LAST_FROM=$(grep -n '^FROM' "$dir/Dockerfile" | tail -1 | cut -d: -f1)
+  if [ -n "$LAST_FROM" ]; then
+    # Extract ENV var names (handles both "ENV FOO=bar" and "ENV FOO bar" syntax)
+    ENV_VARS=$(tail -n +$LAST_FROM "$dir/Dockerfile" | \
+      grep -E '^\s*ENV\s+' | \
+      sed -E 's/^\s*ENV\s+//' | \
+      sed -E 's/^([A-Za-z_][A-Za-z0-9_]*)[= ].*/\1/' | \
+      tr '\n' ',' | sed 's/,$//')
+    if [ -n "$ENV_VARS" ]; then
+      PRESERVE_ENV_ARG="-e DOCKER_PRESERVE_ENV=$ENV_VARS"
+    fi
   fi
 fi
 

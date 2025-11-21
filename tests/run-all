@@ -1,0 +1,74 @@
+#!/bin/sh
+# Test runner for docker-booster
+# Usage: run-all [--no-cleanup | --cleanup]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CLEANUP=1
+RUN_TESTS=1
+
+# Parse arguments
+case "${1:-}" in
+    --no-cleanup) CLEANUP=0 ;;
+    --cleanup)    RUN_TESTS=0 ;;
+    "")           ;;
+    *)            echo "Usage: $0 [--no-cleanup | --cleanup]" >&2; exit 1 ;;
+esac
+
+cleanup() {
+    echo "Cleaning up test containers and images..."
+    for dir in "$SCRIPT_DIR"/*/; do
+        [ -d "$dir" ] || continue
+        name=$(basename "$dir")
+        docker rm -f "$name" 2>/dev/null || true
+        docker rmi -f "$name" 2>/dev/null || true
+    done
+}
+
+run_tests() {
+    passed=0
+    failed=0
+    failed_tests=""
+
+    for dir in "$SCRIPT_DIR"/*/; do
+        [ -d "$dir" ] || continue
+        [ -f "$dir/test.sh" ] || continue
+
+        name=$(basename "$dir")
+        printf "Running %s... " "$name"
+
+        if (cd "$dir" && sh test.sh) > /tmp/test-output-$$ 2>&1; then
+            echo "PASS"
+            passed=$((passed + 1))
+        else
+            echo "FAIL"
+            failed=$((failed + 1))
+            failed_tests="$failed_tests $name"
+            cat /tmp/test-output-$$
+        fi
+        rm -f /tmp/test-output-$$
+    done
+
+    echo ""
+    echo "Results: $passed passed, $failed failed"
+
+    if [ -n "$failed_tests" ]; then
+        echo "Failed:$failed_tests"
+        return 1
+    fi
+}
+
+# Execute
+if [ "$RUN_TESTS" = 1 ]; then
+    run_tests
+    test_result=$?
+else
+    test_result=0
+fi
+
+if [ "$CLEANUP" = 1 ]; then
+    cleanup
+fi
+
+exit $test_result

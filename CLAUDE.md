@@ -16,8 +16,9 @@ The script parses special comment directives from Dockerfiles:
 | Directive | Location | Purpose |
 |-----------|----------|---------|
 | `# platform: <arch>` | First 10 lines | Cross-platform builds (arm64, amd64) |
-| `#env: VAR1,VAR2` | First 20 lines | Preserve env vars across sudo |
 | `#http.static: KEY=/path` | First 20 lines | Serve local dirs during build |
+
+Note: `ENV` vars defined in the Dockerfile (after the last `FROM`) are automatically preserved across sudo inside the container.
 
 ## Architecture
 
@@ -27,7 +28,20 @@ The script operates in two modes based on `$0`:
 
 ## Testing
 
-No automated tests. Test manually by:
-1. Creating a test container directory with a simple Dockerfile
-2. Symlinking `build-and-run` as `run`
-3. Running commands and verifying behavior
+Run all tests:
+```sh
+tests/run-all              # Run tests, cleanup after
+tests/run-all --no-cleanup # Run tests, keep containers for debugging
+tests/run-all --cleanup    # Only cleanup, no tests
+```
+
+### Test Structure
+
+Tests live in `tests/NNNN_name/` directories (numbered for ordering):
+- `Dockerfile` - Test container definition
+- `run` - Symlink to `../../build-and-run`
+- `test.sh` - Test script (exit 0 = pass, non-zero = fail)
+
+### Test Cases
+
+- `0001_preserve_env` - Tests ENV vars from Dockerfile are preserved across sudo
