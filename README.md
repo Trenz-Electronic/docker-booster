@@ -6,6 +6,7 @@ Integrate Docker containers seamlessly into your development workflow by forgett
 - **Volume mounting** - Your files and folders are automatically available
 - **Image management** - Containers are built automatically when needed
 - **TTY handling** - Interactive sessions just work
+- **Docker compatibility** - Use familiar docker run options directly
 
 docker-booster handles all of this automatically.
 
@@ -129,16 +130,36 @@ The script automatically:
 
 ### Additional Docker Options
 
-Pass extra options to `docker run`:
+Pass docker run options directly on the command line:
 
-```dockerfile
-#option: --network host
-#option: --privileged
-#option: --cpus 2
-FROM ubuntu:22.04
+```bash
+./docker/build-env/run -e CC=clang make          # Environment variables
+./docker/build-env/run -v /data:/data make       # Volume mounts
+./docker/build-env/run -p 8080:80 nginx          # Port mapping
+./docker/build-env/run --network host curl ...   # Network mode
+./docker/build-env/run --cpus 4 --memory 8g ...  # Resource limits
 ```
 
-Common options: `--network host`, `--privileged`, `--device /dev/ttyUSB0`, `--cpus N`, `--memory Ng`, `--gpus all`
+**Supported command-line options:**
+- `-e`/`--env` - Environment variables
+- `-v`/`--volume` - Volume mounts
+- `-p`/`--publish` - Port mapping
+- `-w`/`--workdir` - Working directory
+- `--network`/`--net` - Network mode
+- `--device` - Device access
+- `--cpus` - CPU limit
+- `-m`/`--memory` - Memory limit
+- `--gpus` - GPU access
+- `--name` - Container name
+- `--privileged`, `--read-only` - Boolean flags
+
+For options not listed above, use the `#option:` pragma in your Dockerfile:
+
+```dockerfile
+#option: --security-opt seccomp=unconfined
+#option: --cap-add SYS_PTRACE
+FROM ubuntu:22.04
+```
 
 ## Volume Mounting
 
