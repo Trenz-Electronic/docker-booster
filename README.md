@@ -143,6 +143,14 @@ Volumes are automatically mounted based on your working directory:
 
 **Container Not Found**: Images are built automatically. For manual builds: `docker build -t <name> <directory>`
 
+## Testing
+
+Run `tests/run --all` to execute the test suite. See `CLAUDE.md` for details.
+
+### Features not covered by tests
+
+- `/mnt/*` volume mounting (requires root access to `/mnt`)
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) for details.
