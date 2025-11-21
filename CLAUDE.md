@@ -17,6 +17,7 @@ The script parses special comment directives from Dockerfiles:
 |-----------|----------|---------|
 | `# platform: <arch>` | First 10 lines | Cross-platform builds (arm64, amd64) |
 | `#http.static: KEY=/path` | First 20 lines | Serve local dirs during build |
+| `#option: <docker-args>` | First 20 lines | Pass additional args to `docker run` |
 
 Note: `ENV` vars defined in the Dockerfile (after the last `FROM`) are automatically preserved across sudo inside the container.
 
@@ -56,3 +57,4 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0008_pragma_http_static` - Tests `#http.static:` serves files during build
 - `0009_tty_absent` - Tests no TTY when run without interactive terminal
 - `0010_tty_present` - Tests TTY detected when run with pseudo-terminal
+- `0011_pragma_option` - Tests `#option:` passes args to docker run

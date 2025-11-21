@@ -271,6 +271,15 @@ if [ -n "$IMGARCH" ]; then
   PLATFORM_ARG="--platform ${IMGARCH}"
 fi
 
+# Parse #option: directives for additional docker run options
+DOCKER_OPTIONS=""
+if [ -f "$dir/Dockerfile" ]; then
+  OPTION_LINES=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*option:\s*' || true)
+  if [ -n "$OPTION_LINES" ]; then
+    DOCKER_OPTIONS=$(echo "$OPTION_LINES" | sed -E 's/^#\s*option:\s*//' | tr '\n' ' ')
+  fi
+fi
+
 # Auto-preserve ENV vars from Dockerfile across sudo
 # Extract ENV var names after the last FROM line
 PRESERVE_ENV_ARG=""
@@ -299,6 +308,7 @@ exec docker run --rm -i $TFLAG \
   --entrypoint /bin/sh \
   $PLATFORM_ARG \
   $PRESERVE_ENV_ARG \
+  $DOCKER_OPTIONS \
   $tag \
   /bin/user-command $USER "$(id -u)" "$(id -g)" $HOME "$@"
 

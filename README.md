@@ -14,8 +14,8 @@ docker-booster handles all of this automatically.
 Your Dockerfiles gain new powers via simple comment pragmas:
 
 - **Cross-platform builds** - Specify target CPU architecture, with transparent QEMU emulation
-- **Environment preservation** - Keep SDK variables available for your mapped user
 - **External file access** - Include files outside the build context via automatic HTTP serving
+- **Docker options** - Pass network, device, resource limits and other docker run flags
 
 ## Installation
 
@@ -114,6 +114,19 @@ The script automatically:
 - Starts a temporary HTTP server on a random port
 - Passes the URL as `HTTP_<KEY>` build argument
 - Cleans up the server after build completes
+
+### Additional Docker Options
+
+Pass extra options to `docker run`:
+
+```dockerfile
+#option: --network host
+#option: --privileged
+#option: --cpus 2
+FROM ubuntu:22.04
+```
+
+Common options: `--network host`, `--privileged`, `--device /dev/ttyUSB0`, `--cpus N`, `--memory Ng`, `--gpus all`
 
 ## Volume Mounting
 
