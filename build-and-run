@@ -1,0 +1,295 @@
+#!/bin/sh
+#
+# docker-booster - Docker Container Manager with Auto-build
+# https://github.com/trenz-electronic/docker-booster
+#
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Trenz Electronic GmbH
+#
+# ---
+#
+# build-and-run - Docker Container Manager with Auto-build
+#
+# A generalized script for running Docker containers with automatic rebuilding
+# when images don't exist. Handles cross-platform builds, user mapping, and
+# volume mounting for seamless development workflows.
+#
+# FEATURES:
+# - Automatic Docker image building when missing
+# - Cross-platform support via Dockerfile platform directives
+# - User/group mapping to avoid permission issues
+# - Automatic volume mounting based on working directory location
+# - TTY detection for interactive sessions
+#
+# SETUP:
+# 1. Create a directory with your desired container name:
+#    mkdir my-container
+#
+# 2. Add a Dockerfile to this directory:
+#    echo 'FROM ubuntu:20.04' > my-container/Dockerfile
+#
+# 3. Create a symlink to this script in the container directory:
+#    cd my-container && ln -s ../build-and-run run
+#
+# 4. (Optional) Add platform directive to Dockerfile for cross-platform builds:
+#    # platform: arm64
+#    FROM ubuntu:20.04
+#
+# USAGE EXAMPLES:
+#   ./my-container/run bash                    # Start interactive bash
+#   ./my-container/run make                    # Run make command
+#   ./my-container/run python3 script.py      # Run Python script
+#
+# PLATFORM SUPPORT:
+# Add a platform comment in the first 10 lines of your Dockerfile:
+#   # platform: arm64     # For ARM64/aarch64
+#   # platform: amd64     # For x86_64
+#
+# If no platform directive is found, Docker will use the host platform.
+#
+# VOLUME MOUNTING:
+# - $HOME/* paths: Mount $HOME only
+# - /mnt/* paths: Mount /mnt + $HOME
+# - Other paths: Mount current directory + $HOME
+#
+# TECHNICAL NOTES:
+# - Creates temporary user inside container matching host UID/GID
+# - Grants sudo access to created user
+# - Preserves working directory inside container
+# - Auto-detects TTY for interactive sessions
+
+set -e
+
+myname=$(basename $0)
+
+# Are we the user command to be executed?
+if [ x"${myname}" = x"user-command" ]; then
+  # Run the given command in the container.
+
+  # Argument checks.
+  if [ $# -lt 5 ]; then
+    >&2 echo "Missing command-line parameters."
+    >&2 echo "Usage:  container USER USERID GROUPID HOME COMMAND [PARAMETERS]"
+    exit 2
+  fi
+  USER=$1
+  shift || exit $?
+  USERID=$1
+  shift || exit $?
+  GROUPID=$1
+  shift || exit $?
+  HOME=$1
+  shift || exit $?
+
+  # Add ourselves to the system.
+  if ! grep -q ^$USER: /etc/passwd; then
+    echo "$USER:*:$USERID:$GROUPID:Docker runner:$HOME:/bin/bash" >> /etc/passwd
+    echo "$USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/10-docker-users
+  fi
+  if ! grep -q ^mygroup: /etc/group; then
+    echo "mygroup::$GROUPID::" >> /etc/group
+  fi
+
+  # Execute the command as the requested user
+  # Use "$@" instead of $* to preserve argument boundaries
+  # Build environment preservation arguments for sudo
+  ENV_ARGS=""
+  if [ -n "$DOCKER_PRESERVE_ENV" ]; then
+    # Parse comma-separated list and build "VAR=$VAR" arguments
+    OLD_IFS="$IFS"
+    IFS=','
+    for var in $DOCKER_PRESERVE_ENV; do
+      eval "val=\$$var"
+      ENV_ARGS="$ENV_ARGS $var=$val"
+    done
+    IFS="$OLD_IFS"
+  fi
+  exec sudo -u $USER env $ENV_ARGS "$@"
+  >&2 echo "Exec failed somehow. Error code: $?"
+  exit 3
+fi
+
+real_self=$(realpath --no-symlinks $0)
+dir=$(dirname ${real_self})
+tag=$(basename $dir)
+
+case $PWD in
+  $HOME*) MDIR=$HOME
+     VARG=;;
+  /mnt/*) MDIR=/mnt
+     VARG="-v $HOME:$HOME";;
+  *) MDIR=$PWD
+     VARG="-v $HOME:$HOME";;
+esac
+
+IMGARCH=`docker inspect --format='{{.Architecture}}' ${tag}` || true
+if [ x"${IMGARCH}" = x"" ]; then
+  >&2 echo "Docker image ${tag} not found, rebuilding..."
+
+  # Parse platform tag from Dockerfile
+  BUILD_PLATFORM=""
+  HTTP_SERVERS=""
+  HTTP_SERVER_PIDS=""
+  BUILD_ARGS=""
+
+  if [ -f "$dir/Dockerfile" ]; then
+    PLATFORM_LINE=$(head -n 10 "$dir/Dockerfile" | grep -E '^#\s*platform:\s*' | head -n 1)
+    if [ -n "$PLATFORM_LINE" ]; then
+      BUILD_PLATFORM=$(echo "$PLATFORM_LINE" | sed -E 's/^#\s*platform:\s*([^\s]+).*/\1/')
+      >&2 echo "Found platform tag in Dockerfile: ${BUILD_PLATFORM}"
+    fi
+
+    # Check if Dockerfile uses RUN --mount syntax (requires BuildKit)
+    if grep -q '^RUN --mount' "$dir/Dockerfile"; then
+      >&2 echo "Dockerfile uses BuildKit mount syntax, enabling DOCKER_BUILDKIT=1"
+      export DOCKER_BUILDKIT=1
+    fi
+
+    # Parse http.static directives and start HTTP servers
+    HTTP_STATIC_LINES=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*http\.static:\s*' || true)
+    if [ -n "$HTTP_STATIC_LINES" ]; then
+      while IFS= read -r http_line; do
+        # Parse: #http.static: KEY=/path/to/dir
+        HTTP_SPEC=$(echo "$http_line" | sed -E 's/^#\s*http\.static:\s*//')
+        HTTP_KEY=$(echo "$HTTP_SPEC" | cut -d= -f1)
+        HTTP_PATH=$(echo "$HTTP_SPEC" | cut -d= -f2-)
+
+        if [ ! -d "$HTTP_PATH" ]; then
+          >&2 echo "ERROR: http.static path does not exist: $HTTP_PATH"
+          exit 1
+        fi
+
+        # Start HTTP server on random port using Python script
+        HTTP_SERVER_SCRIPT=$(mktemp)
+        HTTP_PORT_FILE="/tmp/http-server-port-$$.txt"
+        cat > "$HTTP_SERVER_SCRIPT" <<PYEOF
+import http.server
+import socketserver
+import sys
+import os
+
+serve_dir = sys.argv[1]
+port_file = sys.argv[2]
+
+os.chdir(serve_dir)
+Handler = http.server.SimpleHTTPRequestHandler
+with socketserver.TCPServer(("", 0), Handler) as httpd:
+    port = httpd.server_address[1]
+    with open(port_file, 'w') as f:
+        f.write(str(port))
+    httpd.serve_forever()
+PYEOF
+
+        cd "$HTTP_PATH"
+        python3 "$HTTP_SERVER_SCRIPT" "$HTTP_PATH" "$HTTP_PORT_FILE" 2>/dev/null &
+        SERVER_PID=$!
+        HTTP_SERVER_PIDS="$HTTP_SERVER_PIDS $SERVER_PID"
+
+        # Wait for server to start and get port
+        SERVER_PORT=""
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if [ -f "$HTTP_PORT_FILE" ]; then
+            SERVER_PORT=$(cat "$HTTP_PORT_FILE")
+            break
+          fi
+          sleep 0.5
+        done
+
+        if [ -z "$SERVER_PORT" ]; then
+          >&2 echo "ERROR: Failed to start HTTP server for $HTTP_KEY"
+          kill $SERVER_PID 2>/dev/null || true
+          rm -f "$HTTP_SERVER_SCRIPT"
+          exit 1
+        fi
+
+        # On Linux, use the Docker bridge gateway IP instead of host.docker.internal
+        HOST_IP=$(ip route | awk '/docker0/ {print $9}' | head -n1)
+        if [ -z "$HOST_IP" ]; then
+          # Fallback to getting the default route IP
+          HOST_IP=$(ip route get 1 | awk '{print $7;exit}')
+        fi
+        SERVER_URL="http://${HOST_IP}:${SERVER_PORT}"
+        BUILD_ARGS="$BUILD_ARGS --build-arg HTTP_${HTTP_KEY}=${SERVER_URL}"
+
+        >&2 echo "Started HTTP server for ${HTTP_KEY}: ${SERVER_URL} (PID: ${SERVER_PID})"
+        cd - >/dev/null
+      done <<EOF
+$HTTP_STATIC_LINES
+EOF
+    fi
+
+    # Cleanup function for HTTP servers
+    cleanup_http_servers() {
+      if [ -n "$HTTP_SERVER_PIDS" ]; then
+        >&2 echo "Stopping HTTP servers..."
+        for pid in $HTTP_SERVER_PIDS; do
+          kill $pid 2>/dev/null || true
+        done
+        rm -f /tmp/http-server-port-$$.txt
+        rm -f /tmp/http-server-*.py 2>/dev/null || true
+      fi
+    }
+    trap cleanup_http_servers EXIT INT TERM
+
+    # Build docker image with collected options
+    BUILD_CMD="docker build -t $tag --progress=plain"
+    if [ -n "$BUILD_PLATFORM" ]; then
+      BUILD_CMD="$BUILD_CMD --platform=${BUILD_PLATFORM}"
+    fi
+    if [ -n "$BUILD_ARGS" ]; then
+      BUILD_CMD="$BUILD_CMD $BUILD_ARGS"
+    fi
+    BUILD_CMD="$BUILD_CMD $dir"
+
+    >&2 echo "Running: $BUILD_CMD"
+    eval $BUILD_CMD
+    BUILD_RESULT=$?
+
+    cleanup_http_servers
+    trap - EXIT INT TERM
+
+    if [ $BUILD_RESULT -ne 0 ]; then
+      exit $BUILD_RESULT
+    fi
+  else
+    docker build -t $tag --progress=plain $dir
+  fi
+
+  # Get the architecture of the built image
+  IMGARCH=`docker inspect --format='{{.Architecture}}' ${tag}` || true
+fi
+
+# Check if stdin is a TTY using POSIX test
+TFLAG=""
+if [ -t 0 ]; then
+  TFLAG="-t"
+fi
+
+# Set platform argument only if IMGARCH is not empty
+PLATFORM_ARG=""
+if [ -n "$IMGARCH" ]; then
+  PLATFORM_ARG="--platform ${IMGARCH}"
+fi
+
+# Parse #env: directive for environment variable preservation
+PRESERVE_ENV_ARG=""
+if [ -f "$dir/Dockerfile" ]; then
+  ENV_LINE=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*env:\s*' | head -n 1)
+  if [ -n "$ENV_LINE" ]; then
+    PRESERVE_ENV=$(echo "$ENV_LINE" | sed -E 's/^#\s*env:\s*//' | tr -d ' ')
+    PRESERVE_ENV_ARG="-e DOCKER_PRESERVE_ENV=$PRESERVE_ENV"
+  fi
+fi
+
+# Use "$@" instead of $* to preserve argument boundaries
+exec docker run --rm -i $TFLAG \
+  -v ${real_self}:/bin/user-command \
+  -v $MDIR:/$MDIR \
+  $VARG \
+  -w $PWD \
+  --entrypoint /bin/sh \
+  $PLATFORM_ARG \
+  $PRESERVE_ENV_ARG \
+  $tag \
+  /bin/user-command $USER "$(id -u)" "$(id -g)" $HOME "$@"
+
