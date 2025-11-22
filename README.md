@@ -103,6 +103,8 @@ The script automatically:
 - Passes the URL as `HTTP_<KEY>` build argument
 - Cleans up the server after build completes
 
+**Caveat:** Changes to files in directories served by `#http.static:` do not trigger automatic rebuilds. Use `docker rmi <image-name>` to force a rebuild.
+
 ### Docker options in the Dockerfile
 
 For any options you want to always be present on the command line, use the `#option:` pragma in your Dockerfile:
