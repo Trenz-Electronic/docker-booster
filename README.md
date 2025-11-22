@@ -186,6 +186,7 @@ Volumes are automatically mounted based on your working directory:
 - Preserves your working directory inside the container
 - Auto-detects TTY for interactive sessions
 - Automatically enables Docker BuildKit when Dockerfiles use `RUN --mount` syntax
+- Automatically rebuilds the image when detecting changes to Dockerfile and build context using the hash stored as a label in the Docker image
 
 ## Troubleshooting
 

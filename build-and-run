@@ -292,9 +292,54 @@ case $PWD in
      VARG="-v $HOME:$HOME";;
 esac
 
-IMGARCH=`docker inspect --format='{{.Architecture}}' ${tag}` || true
+# Optimized inspect: get architecture, creation time, and context hash in one call
+INSPECT_DATA=$(docker inspect --format='{{.Architecture}}|{{.Created}}|{{index .Config.Labels "docker-booster.context-hash"}}' ${tag} 2>/dev/null) || true
+
+if [ -n "$INSPECT_DATA" ]; then
+  IMGARCH=$(echo "$INSPECT_DATA" | cut -d'|' -f1)
+  IMG_CREATED=$(echo "$INSPECT_DATA" | cut -d'|' -f2)
+  IMG_HASH=$(echo "$INSPECT_DATA" | cut -d'|' -f3)
+else
+  IMGARCH=""
+  IMG_CREATED=""
+  IMG_HASH=""
+fi
+
+# Calculate current context hash for change detection
+CONTEXT_HASH=""
+NEED_REBUILD=0
+
+if [ -d "$dir" ]; then
+  # Hash all files in build context for deterministic fingerprint
+  CONTEXT_HASH=$(find "$dir" -type f ! -path '*/.git/*' ! -name '*.swp' 2>/dev/null | sort | xargs cat 2>/dev/null | sha256sum | cut -d' ' -f1)
+fi
+
+# Check if rebuild is needed
 if [ x"${IMGARCH}" = x"" ]; then
   >&2 echo "Docker image ${tag} not found, rebuilding..."
+  NEED_REBUILD=1
+elif [ -n "$CONTEXT_HASH" ] && [ "$IMG_HASH" != "$CONTEXT_HASH" ]; then
+  if [ -z "$IMG_HASH" ]; then
+    # Image exists without hash label - only rebuild if Dockerfile exists
+    if [ -f "$dir/Dockerfile" ]; then
+      >&2 echo "Image ${tag} exists but lacks hash label, rebuilding to enable change detection..."
+      NEED_REBUILD=1
+    else
+      >&2 echo "Image ${tag} exists (no Dockerfile found, skipping hash check)"
+      NEED_REBUILD=0
+    fi
+  else
+    >&2 echo "Context changes detected, rebuilding image ${tag}..."
+    NEED_REBUILD=1
+  fi
+elif [ -n "$IMG_HASH" ] && [ "$IMG_HASH" = "$CONTEXT_HASH" ]; then
+  SHORT_HASH=$(echo "$CONTEXT_HASH" | cut -c1-12)
+  >&2 echo "Image ${tag} is up-to-date (context hash: ${SHORT_HASH})"
+  NEED_REBUILD=0
+fi
+
+if [ "$NEED_REBUILD" -eq 1 ]; then
+  # Image needs rebuild
 
   # Parse platform tag from Dockerfile
   BUILD_PLATFORM=""
@@ -409,6 +454,10 @@ EOF
     if [ -n "$BUILD_ARGS" ]; then
       BUILD_CMD="$BUILD_CMD $BUILD_ARGS"
     fi
+    # Add context hash label for change detection
+    if [ -n "$CONTEXT_HASH" ]; then
+      BUILD_CMD="$BUILD_CMD --label docker-booster.context-hash=${CONTEXT_HASH}"
+    fi
     BUILD_CMD="$BUILD_CMD $dir"
 
     >&2 echo "Running: $BUILD_CMD"
@@ -425,8 +474,11 @@ EOF
     docker build -t $tag --progress=plain $dir
   fi
 
-  # Get the architecture of the built image
-  IMGARCH=`docker inspect --format='{{.Architecture}}' ${tag}` || true
+  # Update architecture after build (reuse optimized inspect format)
+  INSPECT_DATA=$(docker inspect --format='{{.Architecture}}|{{.Created}}|{{index .Config.Labels "docker-booster.context-hash"}}' ${tag} 2>/dev/null) || true
+  if [ -n "$INSPECT_DATA" ]; then
+    IMGARCH=$(echo "$INSPECT_DATA" | cut -d'|' -f1)
+  fi
 fi
 
 # Check if stdin is a TTY using POSIX test

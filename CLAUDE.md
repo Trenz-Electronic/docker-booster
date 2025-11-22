@@ -31,6 +31,16 @@ User/group mapping preserves host username, UID, GID, and group name. If the gro
 
 The script automatically enables Docker BuildKit when Dockerfiles use `RUN --mount` syntax.
 
+### Smart Rebuild Detection
+
+The script implements hash-based rebuild detection:
+- Calculates SHA-256 hash of all files in the build context (excluding `.git/`, `*.swp`)
+- Stores hash as Docker image label: `docker-booster.context-hash`
+- On subsequent runs, compares current hash with label from existing image
+- Skips rebuild if hashes match, dramatically speeding up development workflow
+- No external cache files needed - hash stored in Docker image metadata
+- Single optimized `docker inspect` call retrieves architecture, creation time, and hash label
+
 ## Testing
 
 Run tests:
@@ -69,3 +79,4 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0014_cmdline_options` - Tests common docker options (-v, --network, --cpus)
 - `0015_user_mapping_conflict` - Tests group name conflict handling (rename with GID suffix)
 - `0016_buildkit_auto` - Tests automatic BuildKit enablement for `RUN --mount` syntax
+- `0017_auto_rebuild` - Tests hash-based automatic rebuild detection (skip rebuild when unchanged, detect Dockerfile and context changes)
