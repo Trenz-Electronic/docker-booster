@@ -1,5 +1,7 @@
 # docker-booster
 
+[![Test Suite](https://github.com/Trenz-Electronic/docker-booster/actions/workflows/test.yml/badge.svg)](https://github.com/Trenz-Electronic/docker-booster/actions/workflows/test.yml)
+
 Integrate Docker containers seamlessly into your development workflow by forgetting about:
 
 - **User/group mapping** - No more permission headaches with mounted volumes
