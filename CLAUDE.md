@@ -7,7 +7,7 @@ docker-booster is a single-script Docker workflow tool that automates image buil
 ## Key Files
 
 - `build-and-run` - The main script (POSIX shell). This is the entire tool.
-- `README.md` - User documentation
+- `README.md` - User documentation. In the README.md, the focus is on what it does for users, including technical details only when necessary for using the docker-booster. The implementation details should go into CLAUDE.md.
 
 ## Dockerfile Directive Syntax
 
