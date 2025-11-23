@@ -5,7 +5,7 @@
 Run your Docker containers, old or new, painlessly from the command line by forgetting about:
 
 - **User/group mapping** - No more permission headaches with mounted volumes
-- **Volume mounting** - Your files and folders are available as if container were your home
+- **Volume mounting** - Your project files are automatically available
 - **Image management** - Containers are built and rebuilt automatically as needed
 - **TTY handling** - Interactive sessions just work
 - **Common options** - Do not type them every time, tuck them away in the Dockerfile
@@ -108,7 +108,7 @@ The default behaviour of docker-booster is to search for the root of the git rep
 The directive "#mount" accepts a list of one of the following:
 - `.git` - Root of the git repository (searches upward from current directory)
 - `pwd` - Current working directory
-- `home` - Home directory, do not use when the contents of the docker container cannot be trusted
+- `home` - Home directory, do not use with untrusted containers
 The list is searched and the first available directory will be mounted; if none are available, it will exit with error.
 
 **Example**: Restrict container to git repository only, to avoid any security lapses:
@@ -131,7 +131,7 @@ In this example, there are two license files copied over using #copy.home:
 FROM ubuntu:22.04
 ```
 
-Please note that changes made to these files in the container will not be reflected in the host system
+Please note that changes made to these files in the container will not be reflected in the host system.
 
 Should the files not exist, it is an error.
 
@@ -157,7 +157,7 @@ Serve local directories via HTTP during image builds (useful for large installer
 FROM ubuntu:22.04
 
 ARG HTTP_INSTALLER
-# not the cleanup step - the purpose of this is to keep the docker layers small.
+# note the cleanup step - the purpose of this is to keep the docker layers small.
 RUN wget ${HTTP_INSTALLER}/large-sdk-installer.run && sh ./large-sdk-installer.run && rm ./large-sdk-installer.run
 ```
 
@@ -229,10 +229,6 @@ The default behavior makes docker-booster safe for CI/CD pipelines and untrusted
 ## Testing
 
 Run `tests/run --all` to execute the test suite. See `CLAUDE.md` for details.
-
-### Features not covered by tests
-
-- `/mnt/*` volume mounting (requires root access to `/mnt`)
 
 ## License
 
