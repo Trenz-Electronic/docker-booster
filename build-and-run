@@ -106,6 +106,13 @@ if [ x"${myname}" = x"user-command" ]; then
     echo "$GROUPNAME::$GROUPID::" >> /etc/group
   fi
 
+  # Extract #copy.home: files if provided
+  if [ -f /tmp/home-files.tar.gz ]; then
+    cd "$HOME"
+    tar xzf /tmp/home-files.tar.gz 2>/dev/null || true
+    cd - >/dev/null
+  fi
+
   # Execute the command as the requested user
   # Use "$@" instead of $* to preserve argument boundaries
   # Build environment preservation arguments for sudo
@@ -283,14 +290,95 @@ done
 # Remove leading comma from CMDLINE_ENV_VARS
 CMDLINE_ENV_VARS=$(echo "$CMDLINE_ENV_VARS" | sed 's/^,//')
 
-case $PWD in
-  $HOME*) MDIR=$HOME
-     VARG=;;
-  /mnt/*) MDIR=/mnt
-     VARG="-v $HOME:$HOME";;
-  *) MDIR=$PWD
-     VARG="-v $HOME:$HOME";;
-esac
+# Parse #mount: and #copy.home: directives from Dockerfile
+MOUNT_KEYWORDS=""
+COPY_HOME_FILES=""
+if [ -f "$dir/Dockerfile" ]; then
+  # Parse #mount: directives (first 20 lines, multiple directives allowed)
+  MOUNT_LINES=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*mount:\s*' || true)
+  if [ -n "$MOUNT_LINES" ]; then
+    MOUNT_KEYWORDS=$(echo "$MOUNT_LINES" | sed -E 's/^#\s*mount:\s*//' | tr '\n' ' ')
+  fi
+
+  # Parse #copy.home: directives (first 20 lines, multiple directives allowed)
+  COPY_HOME_LINES=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*copy\.home:\s*' || true)
+  if [ -n "$COPY_HOME_LINES" ]; then
+    COPY_HOME_FILES=$(echo "$COPY_HOME_LINES" | sed -E 's/^#\s*copy\.home:\s*//' | tr '\n' ' ')
+  fi
+fi
+
+# Function to find .git directory by traversing up from current directory
+find_git_root() {
+  search_dir="$1"
+  while [ "$search_dir" != "/" ]; do
+    if [ -d "$search_dir/.git" ]; then
+      echo "$search_dir"
+      return 0
+    fi
+    search_dir=$(dirname "$search_dir")
+  done
+  return 1
+}
+
+# Determine mount directory based on #mount: directives or default behavior
+MDIR=""
+
+if [ -n "$MOUNT_KEYWORDS" ]; then
+  # Process #mount: directives - FIRST found wins
+  MOUNT_RESOLVED=0
+  for keyword in $MOUNT_KEYWORDS; do
+    case "$keyword" in
+      home)
+        if [ -d "$HOME" ]; then
+          MDIR="$HOME"
+          MOUNT_RESOLVED=1
+          >&2 echo "Mount directive: Using home directory ($HOME)"
+          break
+        else
+          >&2 echo "WARNING: #mount: home - directory not found, trying next"
+        fi
+        ;;
+      pwd)
+        if [ -d "$PWD" ]; then
+          MDIR="$PWD"
+          MOUNT_RESOLVED=1
+          >&2 echo "Mount directive: Using current directory ($PWD)"
+          break
+        else
+          >&2 echo "WARNING: #mount: pwd - directory not found, trying next"
+        fi
+        ;;
+      .git)
+        GIT_ROOT=$(find_git_root "$PWD")
+        if [ -n "$GIT_ROOT" ]; then
+          MDIR="$GIT_ROOT"
+          MOUNT_RESOLVED=1
+          >&2 echo "Mount directive: Using git root directory ($GIT_ROOT)"
+          break
+        else
+          >&2 echo "WARNING: #mount: .git - git repository not found, trying next"
+        fi
+        ;;
+      *)
+        >&2 echo "WARNING: #mount: unknown keyword '$keyword', ignoring"
+        ;;
+    esac
+  done
+
+  if [ "$MOUNT_RESOLVED" -eq 0 ]; then
+    >&2 echo "ERROR: All #mount: directives failed to resolve a directory"
+    exit 1
+  fi
+else
+  # Default behavior (no #mount: directive): Try .git first, fall back to pwd
+  # This provides secure-by-default behavior for git repositories
+  GIT_ROOT=$(find_git_root "$PWD")
+  if [ -n "$GIT_ROOT" ]; then
+    MDIR="$GIT_ROOT"
+  else
+    MDIR="$PWD"
+  fi
+fi
 
 # Optimized inspect: get architecture, creation time, and context hash in one call
 INSPECT_DATA=$(docker inspect --format='{{.Architecture}}|{{.Created}}|{{index .Config.Labels "docker-booster.context-hash"}}' ${tag} 2>/dev/null) || true
@@ -493,6 +581,30 @@ if [ -n "$IMGARCH" ]; then
   PLATFORM_ARG="--platform ${IMGARCH}"
 fi
 
+# Handle #copy.home: files - create tar archive
+COPY_HOME_VARG=""
+COPY_HOME_TAR=""
+if [ -n "$COPY_HOME_FILES" ]; then
+  COPY_HOME_TAR="/tmp/docker-booster-home-files-$$.tar.gz"
+  cd "$HOME"
+
+  # Try to create tar, check for missing files
+  if tar czf "$COPY_HOME_TAR" $COPY_HOME_FILES 2>/dev/null; then
+    COPY_HOME_VARG="-v $COPY_HOME_TAR:/tmp/home-files.tar.gz:ro"
+    >&2 echo "Collected home files for container: $COPY_HOME_FILES"
+  else
+    # Tar failed, list missing files
+    >&2 echo "ERROR: Failed to collect files from \$HOME. Missing files:"
+    for f in $COPY_HOME_FILES; do
+      if [ ! -e "$HOME/$f" ]; then
+        >&2 echo "  $HOME/$f"
+      fi
+    done
+    exit 1
+  fi
+  cd - >/dev/null
+fi
+
 # Parse #option: directives for additional docker run options
 DOCKER_OPTIONS=""
 OPTION_ENV_VARS=""
@@ -535,11 +647,19 @@ if [ -n "$ENV_VARS" ]; then
   PRESERVE_ENV_ARG="-e DOCKER_PRESERVE_ENV=$ENV_VARS"
 fi
 
+# Cleanup function for temporary tar file
+cleanup_copy_home() {
+  if [ -n "$COPY_HOME_TAR" ] && [ -f "$COPY_HOME_TAR" ]; then
+    rm -f "$COPY_HOME_TAR"
+  fi
+}
+trap cleanup_copy_home EXIT INT TERM
+
 # Use "$@" instead of $* to preserve argument boundaries
 exec docker run --rm -i $TFLAG \
   -v ${real_self}:/bin/user-command \
-  -v $MDIR:/$MDIR \
-  $VARG \
+  -v $MDIR:$MDIR \
+  $COPY_HOME_VARG \
   -w $PWD \
   --entrypoint /bin/sh \
   $PLATFORM_ARG \

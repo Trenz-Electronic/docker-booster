@@ -101,6 +101,40 @@ For any options you want to always be present on the command line, but don't bot
 FROM ubuntu:22.04
 ```
 
+### Fine-tune volume mapping
+
+The default behaviour of docker-booster is to search for the root of the git repository and volume mount it; failing that, it will volume mount the current directory. The default behaviour corresponds to the directive "#mount: .git pwd" and it is already pretty sensible.
+
+The directive "#mount" accepts a list of one of the following:
+- `.git` - Root of the git repository (searches upward from current directory)
+- `pwd` - Current working directory
+- `home` - Home directory, do not use when the contents of the docker container cannot be trusted
+The list is searched and the first available directory will be mounted; if none are available, it will exit with error.
+
+**Example**: Restrict container to git repository only, to avoid any security lapses:
+```dockerfile
+#mount: .git
+FROM ubuntu:22.04
+# Only git repo is mounted, not entire $HOME
+```
+
+Multiple #mount directives are also supported. Duplicates detected will be silently skipped.
+
+### Select the files to be in your home directory
+
+To have files copied over to your home directory in the container, use the "#copy.home:" directive. It takes just a single path to a file relative to your home directory. For multiple files, simply use the directive multiple times.
+
+In this example, there are two license files copied over using #copy.home:
+```dockerfile
+#copy.home: .license.dat
+#copy.home: .config/my-tool/license.json
+FROM ubuntu:22.04
+```
+
+Please note that changes made to these files in the container will not be reflected in the host system
+
+Should the files not exist, it is an error.
+
 ### Platform Selection
 
 Specify the target platform in the first 10 lines:
@@ -158,16 +192,6 @@ my-project/
 
 As long as symlinks in your docker containers point to your docker-booster/build-and-run script, it works.
 
-## Volume Mounting
-
-Volumes are automatically mounted based on your working directory:
-
-| Working Directory | Mounts |
-|-------------------|--------|
-| `$HOME/*` | `$HOME` only |
-| `/mnt/*` | `/mnt` + `$HOME` |
-| Other paths | Current directory + `$HOME` |
-
 ## Technical Details
 
 - Creates a temporary user inside the container matching your host UID/GID/group
@@ -177,11 +201,30 @@ Volumes are automatically mounted based on your working directory:
 - Automatically enables Docker BuildKit when Dockerfiles use `RUN --mount` syntax
 - Automatically rebuilds the image when detecting changes to Dockerfile and build context using the hash stored as a label in the Docker image
 
-## One very important caveat
+## Security Considerations
 
-Almost last, but not least.
+docker-booster is **secure by default**:
 
-Very important: The automatic volume mapping, which makes it incredibly easy to use, can also be very dangerous when you have no control or little control over the Docker containers. The whole point of Docker container is to isolate, and, people are relying on it. However, having your home directory mounted inside your docker container exposes your data to everything inside the container. Be aware what are you using it to run.
+- ✅ No $HOME exposure - SSH keys, GPG keys, AWS credentials stay protected
+- ✅ Git-aware - automatically mounts only your repository root
+- ✅ Minimal access - falls back to current directory if not in git repo
+
+**When you need $HOME access** (e.g., for shell configurations, SSH keys):
+
+```dockerfile
+#mount: home
+FROM ubuntu:22.04
+```
+
+**When you need specific files only** (most secure):
+
+```dockerfile
+#copy.home: .license.dat
+#copy.home: .ssh/config
+FROM ubuntu:22.04
+```
+
+The default behavior makes docker-booster safe for CI/CD pipelines and untrusted containers without any configuration.
 
 ## Testing
 
@@ -190,10 +233,6 @@ Run `tests/run --all` to execute the test suite. See `CLAUDE.md` for details.
 ### Features not covered by tests
 
 - `/mnt/*` volume mounting (requires root access to `/mnt`)
-
-## TODO
-
-1. How to specify that the $HOME is not to be mounted, but $PWD only? #nohome:true or #home:true? People would probably prefer the more safe option. Better ideas - search for the .git directory?
 
 ## License
 

@@ -16,10 +16,19 @@ The script parses special comment directives from Dockerfiles:
 | Directive | Location | Purpose |
 |-----------|----------|---------|
 | `# platform: <arch>` | First 10 lines | Cross-platform builds (arm64, amd64) |
+| `#mount: .git pwd home` | First 20 lines | Control volume mounting with FIRST-found semantics |
+| `#copy.home: <file>` | First 20 lines | Copy specific files from $HOME into container |
 | `#http.static: KEY=/path` | First 20 lines | Serve local dirs during build |
 | `#option: <docker-args>` | First 20 lines | Pass additional args to `docker run` |
 
-Note: `ENV` vars defined in the Dockerfile (after the last `FROM`) are automatically preserved across sudo inside the container.
+**Volume Mounting Control**:
+- `#mount:` accepts keywords: `.git` (git repo root), `pwd` (current directory), `home` (home directory)
+- FIRST-found semantics: checks keywords in order, uses first match
+- Multiple `#mount:` directives accumulate keywords
+- `#copy.home:` uses tar to bundle files, extracts to container $HOME after user creation
+- **Default behavior** (no `#mount:` directive): Try `.git` first, fall back to `pwd` (secure by default, no $HOME exposure)
+
+**ENV Preservation**: `ENV` vars defined in the Dockerfile (after the last `FROM`) are automatically preserved across sudo inside the container.
 
 ## Architecture
 
@@ -80,3 +89,5 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0015_user_mapping_conflict` - Tests group name conflict handling (rename with GID suffix)
 - `0016_buildkit_auto` - Tests automatic BuildKit enablement for `RUN --mount` syntax
 - `0017_auto_rebuild` - Tests hash-based automatic rebuild detection (skip rebuild when unchanged, detect Dockerfile and context changes)
+- `0018_mount_directives` - Tests `#mount:` directive (pwd, .git, home, FIRST-found semantics)
+- `0019_copy_home` - Tests `#copy.home:` directive (single file, multiple files, missing file error)
