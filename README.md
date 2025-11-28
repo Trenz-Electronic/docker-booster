@@ -153,7 +153,7 @@ This feature can be handy when you want to avoid the hassle of cross-compiling a
 Serve local directories via HTTP during image builds (useful for large installers):
 
 ```dockerfile
-#http.static: INSTALLER=/absolute/path/to/installers
+#http.static: INSTALLER=../installers
 FROM ubuntu:22.04
 
 ARG HTTP_INSTALLER
@@ -161,7 +161,7 @@ ARG HTTP_INSTALLER
 RUN wget ${HTTP_INSTALLER}/large-sdk-installer.run && sh ./large-sdk-installer.run && rm ./large-sdk-installer.run
 ```
 
-**Note:** Path must be absolute and the directory must exist before build.
+**Note:** Relative paths are resolved from the Dockerfile's directory. The directory must exist before build.
 
 The script automatically:
 - Starts a temporary HTTP server on a random port

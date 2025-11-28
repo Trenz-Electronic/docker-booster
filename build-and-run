@@ -457,6 +457,12 @@ if [ "$NEED_REBUILD" -eq 1 ]; then
         HTTP_KEY=$(echo "$HTTP_SPEC" | cut -d= -f1)
         HTTP_PATH=$(echo "$HTTP_SPEC" | cut -d= -f2-)
 
+        # Resolve relative paths against Dockerfile directory
+        case "$HTTP_PATH" in
+          /*) ;;  # absolute path - use as-is
+          *) HTTP_PATH="$dir/$HTTP_PATH" ;;  # relative path - resolve from Dockerfile dir
+        esac
+
         if [ ! -d "$HTTP_PATH" ]; then
           >&2 echo "ERROR: http.static path does not exist: $HTTP_PATH"
           exit 1

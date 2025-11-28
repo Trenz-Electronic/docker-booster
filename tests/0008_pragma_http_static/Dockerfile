@@ -1,4 +1,4 @@
-#http.static: TESTDATA=/tmp/docker-booster-http-test
+#http.static: TESTDATA=http-data
 FROM alpine:latest
 RUN apk add --no-cache sudo curl
 ARG HTTP_TESTDATA
