@@ -24,6 +24,7 @@ The script parses special comment directives from Dockerfiles:
 | `#copy.home: <file>` | First 20 lines | Copy specific files from $HOME into container |
 | `#http.static: KEY=/path` | First 20 lines | Serve local dirs during build |
 | `#option: <docker-args>` | First 20 lines | Pass additional args to `docker run` |
+| `#sudo: all` | First 20 lines | Create sudoers entry for container user |
 
 **Volume Mounting Control**:
 - `#mount:` accepts keywords: `.git` (git repo root), `pwd` (current directory), `home` (home directory)
@@ -32,7 +33,9 @@ The script parses special comment directives from Dockerfiles:
 - `#copy.home:` uses tar to bundle files, extracts to container $HOME after user creation
 - **Default behavior** (no `#mount:` directive): Try `.git` first, fall back to `pwd` (secure by default, no $HOME exposure)
 
-**ENV Preservation**: `ENV` vars defined in the Dockerfile (after the last `FROM`) are automatically preserved across sudo inside the container.
+**ENV Preservation**: `ENV` vars defined in the Dockerfile (after the last `FROM`) are automatically preserved across `su` inside the container.
+
+**Privilege De-escalation**: The script uses `su` (not `sudo`) to drop privileges from root to the container user. This means containers do not need `sudo` installed. If `#sudo: all` is specified, a sudoers entry is created allowing passwordless sudo (requires sudo to be installed in the image).
 
 ## Architecture
 
@@ -95,3 +98,4 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0017_auto_rebuild` - Tests hash-based automatic rebuild detection (skip rebuild when unchanged, detect Dockerfile and context changes)
 - `0018_mount_directives` - Tests `#mount:` directive (pwd, .git, home, FIRST-found semantics)
 - `0019_copy_home` - Tests `#copy.home:` directive (single file, multiple files, missing file error)
+- `0020_sudo_directive` - Tests `#sudo: all` directive (su-based privilege drop, optional sudoers configuration)

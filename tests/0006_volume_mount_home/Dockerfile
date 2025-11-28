@@ -1,3 +1,2 @@
 #mount: home
 FROM alpine:latest
-RUN apk add --no-cache sudo

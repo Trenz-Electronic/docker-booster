@@ -10,7 +10,6 @@ conflict_gid=9999
 # Generate Dockerfile with conflicting group
 cat > Dockerfile.tmp <<EOF
 FROM alpine:latest
-RUN apk add --no-cache sudo
 RUN echo "$host_group:x:$conflict_gid::" >> /etc/group
 EOF
 

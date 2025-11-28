@@ -86,6 +86,10 @@ if [ x"${myname}" = x"user-command" ]; then
   # Add ourselves to the system.
   if ! grep -q ^$USER: /etc/passwd; then
     echo "$USER:*:$USERID:$GROUPID:Docker runner:$HOME:/bin/bash" >> /etc/passwd
+  fi
+
+  # Create sudoers entry only if #sudo: all directive was specified
+  if [ "$DOCKER_SUDO_MODE" = "all" ]; then
     echo "$USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/10-docker-users
   fi
 
@@ -115,7 +119,7 @@ if [ x"${myname}" = x"user-command" ]; then
 
   # Execute the command as the requested user
   # Use "$@" instead of $* to preserve argument boundaries
-  # Build environment preservation arguments for sudo
+  # Build environment preservation arguments
   ENV_ARGS=""
   if [ -n "$DOCKER_PRESERVE_ENV" ]; then
     # Parse comma-separated list and build "VAR=$VAR" arguments
@@ -127,7 +131,13 @@ if [ x"${myname}" = x"user-command" ]; then
     done
     IFS="$OLD_IFS"
   fi
-  exec sudo -u $USER env $ENV_ARGS "$@"
+
+  # Use su to drop privileges (no sudo required in container)
+  if ! command -v su >/dev/null 2>&1; then
+    >&2 echo "ERROR: 'su' command not found in container"
+    exit 1
+  fi
+  exec su -s /bin/sh "$USER" -c "exec env $ENV_ARGS \"\$@\"" -- sh "$@"
   >&2 echo "Exec failed somehow. Error code: $?"
   exit 3
 fi
@@ -623,7 +633,20 @@ if [ -f "$dir/Dockerfile" ]; then
   fi
 fi
 
-# Auto-preserve ENV vars from Dockerfile across sudo
+# Parse #sudo: directive for sudoers configuration
+SUDO_MODE=""
+SUDO_MODE_ARG=""
+if [ -f "$dir/Dockerfile" ]; then
+  SUDO_LINE=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*sudo:\s*' | tail -1 || true)
+  if [ -n "$SUDO_LINE" ]; then
+    SUDO_MODE=$(echo "$SUDO_LINE" | sed -E 's/^#\s*sudo:\s*//' | tr -d ' ')
+  fi
+fi
+if [ "$SUDO_MODE" = "all" ]; then
+  SUDO_MODE_ARG="-e DOCKER_SUDO_MODE=all"
+fi
+
+# Auto-preserve ENV vars from Dockerfile across su
 # Extract ENV var names after the last FROM line
 PRESERVE_ENV_ARG=""
 ENV_VARS=""
@@ -670,6 +693,7 @@ exec docker run --rm -i $TFLAG \
   --entrypoint /bin/sh \
   $PLATFORM_ARG \
   $PRESERVE_ENV_ARG \
+  $SUDO_MODE_ARG \
   $CMDLINE_ENV_ARGS \
   $CMDLINE_DOCKER_ARGS \
   $DOCKER_OPTIONS \

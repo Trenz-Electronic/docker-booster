@@ -23,7 +23,6 @@ cd test_pwd
 cat > Dockerfile <<'EOF'
 #mount: pwd
 FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y sudo >/dev/null 2>&1
 EOF
 ln -sf ../../../build-and-run run
 output=$(./run pwd 2>&1)
@@ -50,7 +49,6 @@ cd subdir
 cat > Dockerfile <<'EOF'
 #mount: .git
 FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y sudo >/dev/null 2>&1
 EOF
 ln -sf ../../../../build-and-run run
 output=$(./run pwd 2>&1)
@@ -74,7 +72,6 @@ cd test_home
 cat > Dockerfile <<'EOF'
 #mount: home
 FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y sudo >/dev/null 2>&1
 EOF
 ln -sf ../../../build-and-run run
 output=$(./run pwd 2>&1)
@@ -100,7 +97,6 @@ cd subdir
 cat > Dockerfile <<'EOF'
 #mount: .git pwd home
 FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y sudo >/dev/null 2>&1
 EOF
 ln -sf ../../../../build-and-run run
 output=$(./run pwd 2>&1)

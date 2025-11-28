@@ -192,10 +192,25 @@ my-project/
 
 As long as symlinks in your docker containers point to your docker-booster/build-and-run script, it works.
 
+### Sudo Configuration
+
+By default, docker-booster does **not** require `sudo` to be installed in the container image. It uses `su` for privilege de-escalation, which is available in virtually all base images.
+
+If you need `sudo` access inside the container, use the `#sudo:` directive:
+
+```dockerfile
+#sudo: all
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y sudo
+```
+
+With `#sudo: all`, docker-booster creates a sudoers entry allowing passwordless sudo for the container user. Without this directive, even if sudo is installed, it won't be configured for the user.
+
 ## Technical Details
 
 - Creates a temporary user inside the container matching your host UID/GID/group
-- Grants sudo access to the created user
+- Uses `su` for privilege de-escalation (no sudo requirement)
+- Optionally configures sudoers with `#sudo: all` directive
 - Preserves your working directory inside the container
 - Auto-detects TTY for interactive sessions
 - Automatically enables Docker BuildKit when Dockerfiles use `RUN --mount` syntax

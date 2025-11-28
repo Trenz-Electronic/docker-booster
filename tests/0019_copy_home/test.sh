@@ -25,7 +25,6 @@ cd test_single
 cat > Dockerfile <<'EOF'
 #copy.home: .test-license-0019.dat
 FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y sudo >/dev/null 2>&1
 EOF
 ln -sf ../../../build-and-run run
 output=$(./run cat ~/.test-license-0019.dat 2>&1)
@@ -56,7 +55,6 @@ cat > Dockerfile <<'EOF'
 #copy.home: .test-license-0019.dat
 #copy.home: .config/test-tool-0019/config.json
 FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y sudo >/dev/null 2>&1
 EOF
 ln -sf ../../../build-and-run run
 output=$(./run sh -c 'cat ~/.test-license-0019.dat && cat ~/.config/test-tool-0019/config.json' 2>&1)
@@ -76,7 +74,6 @@ cd test_missing
 cat > Dockerfile <<'EOF'
 #copy.home: .nonexistent-file-0019.dat
 FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y sudo >/dev/null 2>&1
 EOF
 ln -sf ../../../build-and-run run
 if ./run echo "should not run" 2>&1 | grep -q "ERROR: Failed to collect files"; then
