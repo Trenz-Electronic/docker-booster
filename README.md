@@ -170,6 +170,20 @@ The script automatically:
 
 **Caveat:** Changes to files in directories served by `#http.static:` do not trigger automatic rebuilds. Use `docker rmi <image-name>` to force a rebuild.
 
+### Sudo Configuration
+
+By default, docker-booster does **not** require `sudo` to be installed in the container image. It uses `su` for privilege de-escalation, which is available in virtually all base images.
+
+If you need `sudo` access inside the container, use the `#sudo:` directive:
+
+```dockerfile
+#sudo: all
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y sudo
+```
+
+With `#sudo: all`, docker-booster creates a sudoers entry allowing passwordless sudo for the container user. Without this directive, even if sudo is installed, it won't be configured for the user.
+
 ## Project Structure
 
 docker-booster is flexible about where you place your container directories. The example structure, which is in no way enforced, is:
@@ -191,20 +205,6 @@ my-project/
 ```
 
 As long as symlinks in your docker containers point to your docker-booster/build-and-run script, it works.
-
-### Sudo Configuration
-
-By default, docker-booster does **not** require `sudo` to be installed in the container image. It uses `su` for privilege de-escalation, which is available in virtually all base images.
-
-If you need `sudo` access inside the container, use the `#sudo:` directive:
-
-```dockerfile
-#sudo: all
-FROM ubuntu:22.04
-RUN apt-get update && apt-get install -y sudo
-```
-
-With `#sudo: all`, docker-booster creates a sudoers entry allowing passwordless sudo for the container user. Without this directive, even if sudo is installed, it won't be configured for the user.
 
 ## Technical Details
 
