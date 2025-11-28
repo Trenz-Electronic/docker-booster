@@ -4,6 +4,10 @@
 
 docker-booster is a single-script Docker workflow tool that automates image building, user mapping, and volume mounting for development environments.
 
+## Design Principles
+
+- **Follow user expectations**: Behavior should match what users intuitively expect. For example, relative paths in Dockerfile directives resolve from the Dockerfile's directory (not from `$PWD`), matching standard Dockerfile conventions like `COPY` and `ADD`.
+
 ## Key Files
 
 - `build-and-run` - The main script (POSIX shell). This is the entire tool.
