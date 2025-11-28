@@ -172,9 +172,7 @@ The script automatically:
 
 ### Sudo Configuration
 
-By default, docker-booster does **not** require `sudo` to be installed in the container image. It uses `su` for privilege de-escalation, which is available in virtually all base images.
-
-If you need `sudo` access inside the container, use the `#sudo:` directive:
+If you need `sudo` access inside the container, use the `#sudo:` directive and make sure sudo has been installed, as in the following example:
 
 ```dockerfile
 #sudo: all
@@ -182,7 +180,7 @@ FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y sudo
 ```
 
-With `#sudo: all`, docker-booster creates a sudoers entry allowing passwordless sudo for the container user. Without this directive, even if sudo is installed, it won't be configured for the user.
+With `#sudo: all`, docker-booster creates a sudoers entry allowing passwordless sudo for the container user. Without this directive, even if sudo is installed, it won't be configured for the container user.
 
 ## Project Structure
 
