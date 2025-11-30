@@ -427,13 +427,11 @@ elif [ -n "$CONTEXT_HASH" ] && [ "$IMG_HASH" != "$CONTEXT_HASH" ]; then
       NEED_REBUILD=0
     fi
   else
-    >&2 echo "Context changes detected, rebuilding image ${tag}..."
+    OLD_SHORT_HASH=$(echo "$IMG_HASH" | cut -c1-12)
+    NEW_SHORT_HASH=$(echo "$CONTEXT_HASH" | cut -c1-12)
+    >&2 echo "Context changes detected (${OLD_SHORT_HASH} → ${NEW_SHORT_HASH}), rebuilding image ${tag}..."
     NEED_REBUILD=1
   fi
-elif [ -n "$IMG_HASH" ] && [ "$IMG_HASH" = "$CONTEXT_HASH" ]; then
-  SHORT_HASH=$(echo "$CONTEXT_HASH" | cut -c1-12)
-  >&2 echo "Image ${tag} is up-to-date (context hash: ${SHORT_HASH})"
-  NEED_REBUILD=0
 fi
 
 if [ "$NEED_REBUILD" -eq 1 ]; then
