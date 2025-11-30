@@ -2,7 +2,7 @@
 
 [![Test Suite](https://github.com/Trenz-Electronic/docker-booster/actions/workflows/test.yml/badge.svg)](https://github.com/Trenz-Electronic/docker-booster/actions/workflows/test.yml)
 
-Run your Docker containers, old or new, painlessly from the command line by forgetting about:
+Run your Docker containers, command line or GUI, painlessly from the command line by forgetting about:
 
 - **User/group mapping** - No more permission headaches with mounted volumes
 - **Volume mounting** - Your project files are automatically available
@@ -181,6 +181,39 @@ RUN apt-get update && apt-get install -y sudo
 ```
 
 With `#sudo: all`, docker-booster creates a sudoers entry allowing passwordless sudo for the container user. Without this directive, even if sudo is installed, it won't be configured for the container user.
+
+### GUI Applications (X11)
+
+docker-booster can run X11 applications with minimal configuration:
+
+```dockerfile
+# X11 Application Container
+#copy.home: .Xauthority
+#option: -e DISPLAY=$DISPLAY
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    x11-apps \
+    freecad \
+    kicad \
+    && rm -rf /var/lib/apt/lists/*
+
+# FreeCAD alone installs ~150 packages and 500MB of dependencies!
+```
+
+Usage:
+```bash
+# Test with simple X11 app
+./containers/x11-apps/run xclock
+
+# Run FreeCAD for mechanical design
+./containers/x11-apps/run freecad
+
+# Run KiCad for PCB design
+./containers/x11-apps/run kicad
+```
+
+**Why `#copy.home: .Xauthority`?** This securely copies only the X11 authentication file instead of mounting your entire home directory, following the principle of least privilege.
 
 ## Project Structure
 
