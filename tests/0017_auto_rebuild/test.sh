@@ -45,16 +45,17 @@ echo ""
 echo "=== Test 3: Second run with no changes (should skip rebuild) ==="
 output=$(./run echo "no rebuild" 2>&1)
 case "$output" in
-    *"up-to-date"*"no rebuild"*)
-        echo "PASS: Rebuild skipped when no changes"
-        ;;
     *"rebuilding"*)
         echo "FAIL: Unexpected rebuild when nothing changed"
         echo "Output: $output"
         fail=1
         ;;
+    *"no rebuild"*)
+        # No 'up-to-date' message expected anymore, just the command output
+        echo "PASS: Rebuild skipped when no changes"
+        ;;
     *)
-        echo "FAIL: Expected 'up-to-date' message not found"
+        echo "FAIL: Unexpected output"
         echo "Output: $output"
         fail=1
         ;;
@@ -70,10 +71,12 @@ case "$output" in
     *"changes detected"*"after dockerfile change"*)
         echo "PASS: Dockerfile change triggered rebuild"
         ;;
-    *"up-to-date"*)
-        echo "FAIL: Change not detected, rebuild was skipped"
-        echo "Output: $output"
-        fail=1
+    *"after dockerfile change"*)
+        if ! echo "$output" | grep -q "rebuilding\|changes detected"; then
+            echo "FAIL: Change not detected, rebuild was skipped"
+            echo "Output: $output"
+            fail=1
+        fi
         ;;
     *)
         echo "FAIL: Expected rebuild message not found"
@@ -93,10 +96,12 @@ case "$output" in
     *"changes detected"*"after context change"*)
         echo "PASS: Context file change triggered rebuild"
         ;;
-    *"up-to-date"*)
-        echo "FAIL: Context change not detected"
-        echo "Output: $output"
-        fail=1
+    *"after context change"*)
+        if ! echo "$output" | grep -q "rebuilding\|changes detected"; then
+            echo "FAIL: Context change not detected"
+            echo "Output: $output"
+            fail=1
+        fi
         ;;
     *)
         echo "FAIL: Expected rebuild message not found"
@@ -121,11 +126,17 @@ echo ""
 echo "=== Test 7: Verify no further rebuilds ==="
 output=$(./run echo "final run" 2>&1)
 case "$output" in
-    *"up-to-date"*"final run"*)
+    *"rebuilding"*)
+        echo "FAIL: Unexpected rebuild when context stable"
+        echo "Output: $output"
+        fail=1
+        ;;
+    *"final run"*)
+        # No 'up-to-date' message expected anymore, just the command output
         echo "PASS: No rebuild when context stable"
         ;;
     *)
-        echo "FAIL: Expected 'up-to-date' message"
+        echo "FAIL: Unexpected output"
         echo "Output: $output"
         fail=1
         ;;
