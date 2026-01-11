@@ -135,6 +135,27 @@ Please note that changes made to these files in the container will not be reflec
 
 Should the files not exist, it is an error.
 
+### Mount specific directories
+
+Use the "#usermount:" directive to mount specific directories into the container. Unlike #mount:, this directive creates the directory if it doesn't exist (as the current user, not root).
+
+Environment variables are expanded, so you can use $HOME, $PWD, etc.:
+
+```dockerfile
+#usermount: $HOME/projects/shared-cache
+#usermount: $HOME/.local/share/myapp
+FROM ubuntu:22.04
+```
+
+Multiple paths can be specified on a single line or across multiple directives:
+
+```dockerfile
+#usermount: $HOME/.cache/pip $HOME/.cache/npm
+FROM ubuntu:22.04
+```
+
+This is useful when you need persistent storage for specific directories without exposing your entire home directory.
+
 ### Platform Selection
 
 Specify the target platform in the first 10 lines:

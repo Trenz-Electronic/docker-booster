@@ -22,6 +22,7 @@ The script parses special comment directives from Dockerfiles:
 | `# platform: <arch>` | First 10 lines | Cross-platform builds (arm64, amd64) |
 | `#mount: .git pwd home` | First 20 lines | Control volume mounting with FIRST-found semantics |
 | `#copy.home: <file>` | First 20 lines | Copy specific files from $HOME into container |
+| `#usermount: <path>` | First 20 lines | Mount directories with env var expansion (creates if missing) |
 | `#http.static: KEY=/path` | First 20 lines | Serve local dirs during build |
 | `#option: <docker-args>` | First 20 lines | Pass additional args to `docker run` |
 | `#sudo: all` | First 20 lines | Create sudoers entry for container user |
@@ -99,3 +100,4 @@ Tests live in `tests/NNNN_name/` directories (numbered for ordering):
 - `0018_mount_directives` - Tests `#mount:` directive (pwd, .git, home, FIRST-found semantics)
 - `0019_copy_home` - Tests `#copy.home:` directive (single file, multiple files, missing file error)
 - `0020_sudo_directive` - Tests `#sudo: all` directive (su-based privilege drop, optional sudoers configuration)
+- `0021_usermount_directive` - Tests `#usermount:` directive (directory creation, env var expansion, multiple paths)

@@ -300,9 +300,10 @@ done
 # Remove leading comma from CMDLINE_ENV_VARS
 CMDLINE_ENV_VARS=$(echo "$CMDLINE_ENV_VARS" | sed 's/^,//')
 
-# Parse #mount: and #copy.home: directives from Dockerfile
+# Parse #mount:, #copy.home:, and #usermount: directives from Dockerfile
 MOUNT_KEYWORDS=""
 COPY_HOME_FILES=""
+USERMOUNT_PATHS=""
 if [ -f "$dir/Dockerfile" ]; then
   # Parse #mount: directives (first 20 lines, multiple directives allowed)
   MOUNT_LINES=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*mount:\s*' || true)
@@ -314,6 +315,12 @@ if [ -f "$dir/Dockerfile" ]; then
   COPY_HOME_LINES=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*copy\.home:\s*' || true)
   if [ -n "$COPY_HOME_LINES" ]; then
     COPY_HOME_FILES=$(echo "$COPY_HOME_LINES" | sed -E 's/^#\s*copy\.home:\s*//' | tr '\n' ' ')
+  fi
+
+  # Parse #usermount: directives (first 20 lines, multiple directives allowed)
+  USERMOUNT_LINES=$(head -n 20 "$dir/Dockerfile" | grep -E '^#\s*usermount:\s*' || true)
+  if [ -n "$USERMOUNT_LINES" ]; then
+    USERMOUNT_PATHS=$(echo "$USERMOUNT_LINES" | sed -E 's/^#\s*usermount:\s*//' | tr '\n' ' ')
   fi
 fi
 
@@ -619,6 +626,23 @@ if [ -n "$COPY_HOME_FILES" ]; then
   cd - >/dev/null
 fi
 
+# Process #usermount: directives - expand env vars, create dirs, build volume args
+USERMOUNT_VARGS=""
+if [ -n "$USERMOUNT_PATHS" ]; then
+  for path in $USERMOUNT_PATHS; do
+    # Expand environment variables in path
+    expanded_path=$(eval echo "$path")
+    if [ ! -d "$expanded_path" ]; then
+      mkdir -p "$expanded_path"
+      >&2 echo "Created directory: $expanded_path"
+    fi
+    USERMOUNT_VARGS="$USERMOUNT_VARGS -v $expanded_path:$expanded_path"
+  done
+  if [ -n "$USERMOUNT_VARGS" ]; then
+    >&2 echo "Mounting user directories:$USERMOUNT_VARGS"
+  fi
+fi
+
 # Parse #option: directives for additional docker run options
 DOCKER_OPTIONS=""
 OPTION_ENV_VARS=""
@@ -687,6 +711,7 @@ exec docker run --rm -i $TFLAG \
   -v ${real_self}:/bin/user-command \
   -v $MDIR:$MDIR \
   $COPY_HOME_VARG \
+  $USERMOUNT_VARGS \
   -w $PWD \
   --entrypoint /bin/sh \
   $PLATFORM_ARG \
