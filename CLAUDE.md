@@ -58,6 +58,23 @@ The script implements hash-based rebuild detection:
 - No external cache files needed - hash stored in Docker image metadata
 - Single optimized `docker inspect` call retrieves architecture, creation time, and hash label
 
+### Verbose Mode
+
+The script is quiet by default, suppressing informational messages during normal operation. Set `DOCKER_BOOSTER_VERBOSE=1` in the environment to enable them.
+
+- `DOCKER_BOOSTER_VERBOSE` environment variable controls verbosity (0=quiet, 1=verbose)
+- `info()` helper function outputs to stderr only when verbose mode is enabled
+- Messages suppressed by default (runtime info):
+  - Mount directive resolution ("Mount directive: Using home/pwd/git directory...")
+  - Home file collection ("Collected home files for container...")
+  - User mount listing ("Mounting user directories...")
+- Messages always shown (build-phase and errors):
+  - Image rebuild notifications
+  - Platform/BuildKit detection
+  - HTTP server start/stop
+  - Build command execution
+  - All ERROR/WARNING messages
+
 ## Testing
 
 Run tests:

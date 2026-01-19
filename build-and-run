@@ -60,6 +60,16 @@
 
 set -e
 
+# Verbose mode: set DOCKER_BOOSTER_VERBOSE=1 in environment to enable
+DOCKER_BOOSTER_VERBOSE=${DOCKER_BOOSTER_VERBOSE:-0}
+
+# Print informational message only in verbose mode
+info() {
+  if [ "$DOCKER_BOOSTER_VERBOSE" -eq 1 ]; then
+    >&2 echo "$@"
+  fi
+}
+
 myname=$(basename $0)
 
 # Are we the user command to be executed?
@@ -349,7 +359,7 @@ if [ -n "$MOUNT_KEYWORDS" ]; then
         if [ -d "$HOME" ]; then
           MDIR="$HOME"
           MOUNT_RESOLVED=1
-          >&2 echo "Mount directive: Using home directory ($HOME)"
+          info "Mount directive: Using home directory ($HOME)"
           break
         else
           >&2 echo "WARNING: #mount: home - directory not found, trying next"
@@ -359,7 +369,7 @@ if [ -n "$MOUNT_KEYWORDS" ]; then
         if [ -d "$PWD" ]; then
           MDIR="$PWD"
           MOUNT_RESOLVED=1
-          >&2 echo "Mount directive: Using current directory ($PWD)"
+          info "Mount directive: Using current directory ($PWD)"
           break
         else
           >&2 echo "WARNING: #mount: pwd - directory not found, trying next"
@@ -370,7 +380,7 @@ if [ -n "$MOUNT_KEYWORDS" ]; then
         if [ -n "$GIT_ROOT" ]; then
           MDIR="$GIT_ROOT"
           MOUNT_RESOLVED=1
-          >&2 echo "Mount directive: Using git root directory ($GIT_ROOT)"
+          info "Mount directive: Using git root directory ($GIT_ROOT)"
           break
         else
           >&2 echo "WARNING: #mount: .git - git repository not found, trying next"
@@ -612,7 +622,7 @@ if [ -n "$COPY_HOME_FILES" ]; then
   # Try to create tar, check for missing files
   if tar czf "$COPY_HOME_TAR" $COPY_HOME_FILES 2>/dev/null; then
     COPY_HOME_VARG="-v $COPY_HOME_TAR:/tmp/home-files.tar.gz:ro"
-    >&2 echo "Collected home files for container: $COPY_HOME_FILES"
+    info "Collected home files for container: $COPY_HOME_FILES"
   else
     # Tar failed, list missing files
     >&2 echo "ERROR: Failed to collect files from \$HOME. Missing files:"
@@ -639,7 +649,7 @@ if [ -n "$USERMOUNT_PATHS" ]; then
     USERMOUNT_VARGS="$USERMOUNT_VARGS -v $expanded_path:$expanded_path"
   done
   if [ -n "$USERMOUNT_VARGS" ]; then
-    >&2 echo "Mounting user directories:$USERMOUNT_VARGS"
+    info "Mounting user directories:$USERMOUNT_VARGS"
   fi
 fi
 

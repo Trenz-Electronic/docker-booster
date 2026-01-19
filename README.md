@@ -86,6 +86,9 @@ Pass docker run options directly on the command line:
 
 Important: only the above listed options are supported on the command line.
 
+**Environment variables:**
+- `DOCKER_BOOSTER_VERBOSE=1` - Show informational messages (mount directives, file collection, etc.)
+
 ## Dockerfile Directives
 
 docker-booster extends Dockerfiles with special comment directives.
