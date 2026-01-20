@@ -10,6 +10,9 @@ set -e
 
 fail=0
 
+# Enable verbose mode to see informative messages
+export DOCKER_BOOSTER_VERBOSE=1
+
 # Setup test files in $HOME
 echo "test license content" > "$HOME/.test-license-0019.dat"
 mkdir -p "$HOME/.config/test-tool-0019"
