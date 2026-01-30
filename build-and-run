@@ -120,6 +120,11 @@ if [ x"${myname}" = x"user-command" ]; then
     echo "$GROUPNAME::$GROUPID::" >> /etc/group
   fi
 
+  # Ensure home directory is owned by the user (Docker may have created it as root
+  # when setting up mount points for subdirectories)
+  mkdir -p "$HOME"
+  chown "$USERID:$GROUPID" "$HOME"
+
   # Extract #copy.home: files if provided
   if [ -f /tmp/home-files.tar.gz ]; then
     cd "$HOME"
