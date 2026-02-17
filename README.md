@@ -2,8 +2,9 @@
 
 [![Test Suite](https://github.com/Trenz-Electronic/docker-booster/actions/workflows/test.yml/badge.svg)](https://github.com/Trenz-Electronic/docker-booster/actions/workflows/test.yml)
 
-Run your Docker containers, command line or GUI, painlessly from the command line by forgetting about:
+A single bash script that turns Dockerfiles into ready-to-run applications without long and error-prone docker command lines by automating user mapping, volume mounts, image rebuilds, and more. When your workflow requires multiple tools with conflicting OS or library dependencies, this is exactly where docker-booster shines.
 
+Here is a complete list of stumbling blocks swiftly overcome by using docker-booster:
 - **User/group mapping** - No more permission headaches with mounted volumes
 - **Volume mounting** - Your project files are automatically available
 - **Image management** - Containers are built and rebuilt automatically as needed
@@ -11,10 +12,6 @@ Run your Docker containers, command line or GUI, painlessly from the command lin
 - **Common options** - Do not type them every time, tuck them away in the Dockerfile
 - **Cross-compiling complications** - Build successfully on first try with native compilers and zero effort
 - **Large source files outside build context** - Easily incorporated into your Dockerfile
-
-docker-booster handles all of this automatically, virtually converting your Dockerfiles into ready to run applications.
-
-Sounds complicated? When confused, you can still use your familiar docker run options directly on the command line.
 
 ## Quick Start
 
