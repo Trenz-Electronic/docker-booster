@@ -71,6 +71,21 @@ fi
 cd ..
 
 echo ""
+echo "=== Test 2b: Copied files are owned by container user ==="
+cd test_multiple
+output=$(./run sh -c 'stat -c "%u:%g" ~/.test-license-0019.dat ~/.config/test-tool-0019/config.json ~/.config/test-tool-0019 ~/.config')
+expected_id="$(id -u):$(id -g)"
+bad_lines=$(echo "$output" | grep -c -v "^${expected_id}$" | tr -d ' ') || true
+if [ "$bad_lines" = "0" ]; then
+    echo "PASS: All copied files and parent dirs owned by user ($expected_id)"
+else
+    echo "FAIL: Expected all lines to be $expected_id"
+    echo "Output: $output"
+    fail=1
+fi
+cd ..
+
+echo ""
 echo "=== Test 3: Missing file causes error ==="
 mkdir -p test_missing
 cd test_missing

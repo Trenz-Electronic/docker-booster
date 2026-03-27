@@ -129,6 +129,7 @@ if [ x"${myname}" = x"user-command" ]; then
   if [ -f /tmp/home-files.tar.gz ]; then
     cd "$HOME"
     tar xzf /tmp/home-files.tar.gz 2>/dev/null || true
+    chown -R "$USERID:$GROUPID" . 2>/dev/null || true
     cd - >/dev/null
   fi
 
