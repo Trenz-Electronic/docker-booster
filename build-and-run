@@ -129,6 +129,8 @@ if [ x"${myname}" = x"user-command" ]; then
   if [ -f /tmp/home-files.tar.gz ]; then
     cd "$HOME"
     tar xzf /tmp/home-files.tar.gz 2>/dev/null || true
+    # Fix ownership of extracted files/dirs (tar as root preserves original UIDs
+    # but may create parent directories owned by root)
     chown -R "$USERID:$GROUPID" . 2>/dev/null || true
     cd - >/dev/null
   fi
